@@ -1,4 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Administrator } from 'src/administrators/administrator.entity';
+import { QueueEntry } from 'src/queue_entries/queue_entry.entity';
 import {
   Column,
   Entity,
@@ -12,24 +14,22 @@ import {
 
 @Entity('users')
 export class User {
-
-
+    @PrimaryGeneratedColumn({name: 'user_id'})
     user_id: number
 
-    email
+    @Column({name: 'email', type: 'character varying'})
+    email: string
 
-    password_hash
+    @Column({name: 'password_hash', type: 'character varying'})
+    password_hash: string
 
-    registration_date
+    @Column({name: 'registration_date', type: 'timestamp with time zone'})
+    registration_date: Date
 
+    @OneToMany(() => QueueEntry, (queue_entry) => queue_entry.user)
+    queue_entries: QueueEntry[]
 
-    //ЗАКОНЧИТЬ СУЩНОСТИ
-
-
-
-
-
-
-
+    @OneToMany(() => Administrator, (administrator) => administrator.user)
+    administrators: Administrator[]
 
 }
