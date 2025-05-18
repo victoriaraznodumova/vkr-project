@@ -1,17 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Queue } from 'src/queues/entity/queue.entity';
-import { User } from 'src/users/user.entity';
+import { User } from 'src/users/entity/user.entity';
 import {
-  Column,
   Entity,
   JoinColumn,
-  JoinTable,
   ManyToOne,
-  OneToMany,
-  PrimaryColumn,
-  PrimaryGeneratedColumn,
+  PrimaryColumn
 } from 'typeorm';
-
 
 
 @Entity('administrators')

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Journal } from '../../journal/entity/journal.entity';
 import { Queue } from '../../queues/entity/queue.entity';
-import { User } from '../../users/user.entity';
+import { User } from '../../users/entity/user.entity';
 import {
   Column,
   CreateDateColumn,
@@ -12,7 +12,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { EntryStatusEnum } from '../enum/entry.status.enum';
+import { EntryStatusEnum } from './entry.status.enum';
 
 @Entity('entries')
 export class Entry {

@@ -30,6 +30,7 @@
     "nestjs-form-data": "^1.9.93",
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",
+    "postgres": "^3.4.5",
     "reflect-metadata": "^0.1.14",
     "rimraf": "^6.0.1",
     "rxjs": "^7.2.0",

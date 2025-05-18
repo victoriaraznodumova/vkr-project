@@ -11,9 +11,9 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { QueueTypeEnum } from '../enum/queue.type.enum';
-import { QueueVisibilityEnum } from '../enum/queue.visibility.enum';
-import { User } from 'src/users/user.entity';
+import { QueueTypeEnum } from './queue.type.enum';
+import { QueueVisibilityEnum } from './queue.visibility.enum';
+import { User } from 'src/users/entity/user.entity';
 
 @Entity('queues')
 export class Queue {
@@ -82,3 +82,5 @@ export class Queue {
     createdBy: User;
 
 }
+
+export { QueueTypeEnum };
