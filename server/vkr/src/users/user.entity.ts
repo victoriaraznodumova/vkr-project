@@ -1,35 +1,40 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Administrator } from 'src/administrators/administrator.entity';
-import { QueueEntry } from 'src/queue_entries/queue_entry.entity';
+import { Entry } from 'src/entries/entity/entry.entity';
+import { Journal } from 'src/journal/entity/journal.entity';
+import { Queue } from 'src/queues/entity/queue.entity';
 import {
   Column,
+  CreateDateColumn,
   Entity,
-  JoinColumn,
-  JoinTable,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-
-
 @Entity('users')
 export class User {
     @PrimaryGeneratedColumn({name: 'user_id'})
-    user_id: number
+    userId: number
 
     @Column({name: 'email', type: 'character varying'})
     email: string
 
     @Column({name: 'password_hash', type: 'character varying'})
-    password_hash: string
+    passwordHash: string
 
-    @Column({name: 'registration_date', type: 'timestamp with time zone'})
-    registration_date: Date
+    @CreateDateColumn({name: 'registration_date', type: 'timestamp with time zone'})
+    registrationDate: Date
 
-    @OneToMany(() => QueueEntry, (queue_entry) => queue_entry.user)
-    queue_entries: QueueEntry[]
+    @OneToMany(() => Entry, (entry) => entry.user)
+    entries: Entry[]
 
     @OneToMany(() => Administrator, (administrator) => administrator.user)
     administrators: Administrator[]
+
+    @OneToMany(() => Queue, (queue) => queue.createdByUserId)
+    queues: Queue[]
+
+    @OneToMany(() => Journal, (journal) => journal.initiatedByUserId)
+    initiatedEvents: Journal[]
 
 }

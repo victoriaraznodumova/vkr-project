@@ -1,20 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Queue } from 'src/queues/queue.entity';
+import { Queue } from 'src/queues/entity/queue.entity';
 import {
   Column,
   Entity,
-  JoinColumn,
-  JoinTable,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-
-
 @Entity('organizations')
 export class Organization {
     @PrimaryGeneratedColumn({name: 'organization_id'})
-    organization_id: number
+    organizationId: number
 
     @Column({name: 'name', type: 'character varying'})
     name: string
