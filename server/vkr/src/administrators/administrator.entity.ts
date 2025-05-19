@@ -19,11 +19,9 @@ export class Administrator {
   @PrimaryColumn({name: 'queue_id'})
   queueId: number
 
-  @ManyToOne(() => Queue, (queue) => queue.administrators)
-  @JoinColumn({ name: "queue_id", referencedColumnName: "queue_id" })
+  @ManyToOne(() => Queue, (queue: Queue) => queue.administrators)
   queue: Queue;
 
-  @ManyToOne(() => User, (user) => user.administrators)
-  @JoinColumn({ name: "user_id", referencedColumnName: "user_id" })
+  @ManyToOne(() => User, (user: User) => user.administrators)
   user: User;
 }

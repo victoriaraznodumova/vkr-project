@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Administrator } from 'src/administrators/administrator.entity';
+import { PasswordResetToken } from 'src/auth/entity/password-reset-token.entity';
 import { Entry } from 'src/entries/entity/entry.entity';
 import { Journal } from 'src/journal/entity/journal.entity';
 import { Queue } from 'src/queues/entity/queue.entity';
@@ -36,5 +37,8 @@ export class User {
 
     @OneToMany(() => Journal, (journal) => journal.initiatedByUserId)
     initiatedEvents: Journal[]
+
+    @OneToMany(() => PasswordResetToken, (token) => token.user)
+    passwordResetTokens: PasswordResetToken[];
 
 }

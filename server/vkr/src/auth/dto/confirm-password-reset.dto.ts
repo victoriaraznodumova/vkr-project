@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, Length } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Length, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ConfirmPasswordResetDto {
@@ -11,5 +11,6 @@ export class ConfirmPasswordResetDto {
   @IsNotEmpty({ message: 'Код подтверждения не может быть пустым' })
   @IsString({ message: 'Код подтверждения должен быть строкой' })
   @Length(4, 4, { message: 'Код подтверждения должен состоять из 4 символов' })
+  @Matches(/^\d{4}$/, { message: 'Код подтверждения должен состоять из 4 цифр' })
   code: string;
 }

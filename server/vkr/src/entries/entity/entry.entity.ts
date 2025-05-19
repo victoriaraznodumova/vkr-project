@@ -60,12 +60,10 @@ export class Entry {
   @Column({name: 'actual_end_time', type: 'timestamp with time zone', nullable: true })  
   actualEndTime: Date | null;
 
-  @ManyToOne(() => User, (user) => user.entries)
-  @JoinColumn({ name: "user_id", referencedColumnName: "user_id" })
+  @ManyToOne(() => User, (user: User) => user.entries)
   user: User;
 
-  @ManyToOne(() => Queue, (queue) => queue.entries)
-  @JoinColumn({ name: "queue_id", referencedColumnName: "queue_id" })
+  @ManyToOne(() => Queue, (queue: Queue) => queue.entries)
   queue: Queue;
 
   @OneToMany(() => Journal, (journal) => journal.entry)

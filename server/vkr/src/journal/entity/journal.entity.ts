@@ -53,12 +53,10 @@ export class Journal {
     @Column({name: 'comment', type: 'text', nullable: true})
     comment: string
 
-    @ManyToOne(() => Entry, (entry) => entry.logs)
-    @JoinColumn({ name: "entry_id", referencedColumnName: "entry_id" })
+    @ManyToOne(() => Entry, (entry: Entry) => entry.logs)
     entry: Entry;
 
-    @ManyToOne(() => User, (user) => user.initiatedEvents)
-    @JoinColumn({ name: "initiated_by_user_id", referencedColumnName: "user_id" })
+    @ManyToOne(() => User, (user: User) => user.initiatedEvents)
     user: User;
 
 }

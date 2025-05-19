@@ -73,12 +73,10 @@ export class Queue {
     @OneToMany(() => Entry, (entry) => entry.queue)
     entries: Entry[];
 
-    @ManyToOne(() => Organization, (organization) => organization.queues)
-    @JoinColumn({ name: "organization_id", referencedColumnName: "organization_id" })
+    @ManyToOne(() => Organization, (organization: Organization) => organization.queues)
     organization: Organization;
 
-    @ManyToOne(() => User, (user) => user.queues)
-    @JoinColumn({ name: "created_by_user_id", referencedColumnName: "user_id" })
+    @ManyToOne(() => User, (user: User) => user.queues)
     createdBy: User;
 
 }
