@@ -7,10 +7,10 @@ export class ResetPasswordDto {
   @IsEmail({}, { message: 'Некорректный формат email' })
   email: string;
 
-  @ApiProperty({ description: 'Код подтверждения, полученный ранее', example: '1234' })
+  @ApiProperty({ description: 'Код подтверждения из письма', example: '123456' })
   @IsNotEmpty({ message: 'Код подтверждения не может быть пустым' })
   @IsString({ message: 'Код подтверждения должен быть строкой' })
-  @Length(4, 4, { message: 'Код подтверждения должен состоять из 4 символов' })
+  @Length(6, 6, { message: 'Код подтверждения должен состоять из 6 символов' })
   code: string; // Код нужен для повторной валидации запроса на этом шаге
 
   @ApiProperty({ description: 'Новый пароль пользователя (минимум 8 символов)', example: 'NewSecurePassword456!' })

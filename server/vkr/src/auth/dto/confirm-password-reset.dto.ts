@@ -7,10 +7,10 @@ export class ConfirmPasswordResetDto {
   @IsEmail({}, { message: 'Некорректный формат email' })
   email: string;
 
-  @ApiProperty({ description: 'Четырехзначный код подтверждения', example: '1234' })
+  @ApiProperty({ description: 'Шестизначный код подтверждения', example: '123456' })
   @IsNotEmpty({ message: 'Код подтверждения не может быть пустым' })
   @IsString({ message: 'Код подтверждения должен быть строкой' })
-  @Length(4, 4, { message: 'Код подтверждения должен состоять из 4 символов' })
-  @Matches(/^\d{4}$/, { message: 'Код подтверждения должен состоять из 4 цифр' })
+  @Length(6, 6, { message: 'Код подтверждения должен состоять из 6 символов' })
+  @Matches(/^\d{6}$/, { message: 'Код подтверждения должен состоять из 6 цифр' })
   code: string;
 }
