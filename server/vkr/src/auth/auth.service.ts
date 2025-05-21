@@ -1,5 +1,3 @@
-// src/auth/auth.service.ts
-
 import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
@@ -97,7 +95,7 @@ export class AuthService {
     * @throws UnauthorizedException если пользователь не найден.
     */
    async getAuthenticatedUser(userId: number): Promise<User> {
-       const user = await this.userService.findById(userId);
+       const user = await this.userService.findOne(userId);
        if (!user) {
            throw new UnauthorizedException('Пользователь не найден');
        }

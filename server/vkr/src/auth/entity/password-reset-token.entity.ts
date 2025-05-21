@@ -59,7 +59,7 @@ export class PasswordResetToken {
   /**
    * Дата и время истечения срока действия токена.
    */
-  @Column({ name: 'expires_at' })
+  @Column({ name: 'expires_at' , nullable: false})
   expiresAt: Date;
 
   /**

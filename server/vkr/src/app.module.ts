@@ -11,6 +11,10 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
 // !!! ДОБАВЬТЕ ЭТОТ ИМПОРТ !!!
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { OrganizationsModule } from './organizations/organization.module';
+import { QueueModule } from './queues/queue.module';
+import { JournalModule } from './journal/journal.module';
+import { EntryModule } from './entries/entry.module';
 
 
 @Module({
@@ -33,6 +37,10 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
     }),
     UserModule,
     AuthModule,
+    OrganizationsModule,
+    QueueModule,
+    JournalModule, 
+    EntryModule,
 
     MailerModule.forRootAsync({
       imports: [ConfigModule],

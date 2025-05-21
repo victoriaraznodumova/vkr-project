@@ -1,25 +1,32 @@
+
+/**
+ * DTO для обновления статуса записи в очереди.
+ * Используется, например, администратором очереди.
+ */
 import { IsNotEmpty, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { EntryStatusEnum } from '../entity/entry.status.enum'; // Импортируем ENUM статусов
-
-export enum UpdateStatusEnum {
-    WAITING = 'Ожидает',
-    SERVING = 'Обслуживается',
-    LATE = 'Опаздывает',
-    COMPLETED = 'Завершено',
-    CANCELED = 'Отменено',
-}
+import { EntryStatusEnum } from '../entity/entry.status.enum'; // !!! ОЧЕНЬ ВАЖНО: Убедитесь, что этот импорт правильный и указывает на ваш EntryStatusEnum !!!
 
 /**
  * DTO для обновления статуса записи в очереди.
  * Используется, например, администратором очереди.
  */
 export class UpdateStatusDto {
-  @ApiProperty({ description: 'Новый статус записи', enum: UpdateStatusEnum, example: 'обслуживается' })
+  @ApiProperty({
+    description: 'Новый статус записи',
+    enum: EntryStatusEnum, // !!! Здесь должен быть EntryStatusEnum, а не какой-либо другой enum !!!
+    example: EntryStatusEnum.SERVING, // Пример значения из EntryStatusEnum
+  })
   @IsNotEmpty({ message: 'Статус не может быть пустым' })
-  @IsEnum(UpdateStatusEnum, { message: 'Некорректное значение статуса' })
-  status: UpdateStatusEnum; 
+  @IsEnum(EntryStatusEnum, { message: 'Некорректное значение статуса' }) // !!! Валидация должна быть по EntryStatusEnum !!!
+  status: EntryStatusEnum; // !!! Тип этого свойства ДОЛЖЕН быть EntryStatusEnum !!!
 
   // Примечание: Проверка допустимости перехода из текущего статуса в новый,
   // а также проверка прав пользователя, должны выполняться в сервисе.
+
+
+  comment: string;
 }
+
+  // Примечание: Проверка допустимости перехода из текущего статуса в новый,
+  // а также проверка прав пользователя, должны выполняться в сервисе.

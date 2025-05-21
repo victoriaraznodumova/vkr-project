@@ -20,8 +20,10 @@ export class Administrator {
   queueId: number
 
   @ManyToOne(() => Queue, (queue: Queue) => queue.administrators)
+  @JoinColumn({ name: 'queue_id' }) 
   queue: Queue;
 
   @ManyToOne(() => User, (user: User) => user.administrators)
+  @JoinColumn({ name: 'user_id' }) 
   user: User;
 }

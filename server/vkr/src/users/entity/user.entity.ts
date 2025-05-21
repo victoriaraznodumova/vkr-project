@@ -11,6 +11,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { UserRoleEnum } from './user-role.enum';
 
 @Entity('users')
 export class User {

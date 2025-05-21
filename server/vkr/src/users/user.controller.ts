@@ -14,7 +14,7 @@ export class UserController{
 
     @Get('/find_users_by_id')
     async getUserById(@Query('id') id: number){
-        return await this.userService.findById (id);
+        return await this.userService.findOne (id);
     }
 
     @Get('/find_users_by_email')

@@ -61,9 +61,11 @@ export class Entry {
   actualEndTime: Date | null;
 
   @ManyToOne(() => User, (user: User) => user.entries)
+  @JoinColumn({ name: 'user_id' }) 
   user: User;
 
   @ManyToOne(() => Queue, (queue: Queue) => queue.entries)
+  @JoinColumn({ name: 'queue_id' }) 
   queue: Queue;
 
   @OneToMany(() => Journal, (journal) => journal.entry)

@@ -1,7 +1,10 @@
 export enum EntryStatusEnum {
-  WAITING = 'waiting',
-  SERVING = 'serving',
-  COMPLETED = 'completed',
-  CANCELED = 'canceled',
-  LATE = 'late'
+  WAITING = 'waiting', // Запись ожидает обслуживания
+  SERVING = 'serving', // Запись в данный момент обслуживается
+  COMPLETED = 'completed', // Обслуживание записи завершено
+  CANCELED = 'canceled', // Запись отменена (пользователем или администратором)
+  NO_SHOW = 'no_show', // Пользователь не явился на обслуживание
+  LATE = 'late', // Пользователь опаздывает на обслуживание
+  // Дополнительные статусы могут быть добавлены по мере необходимости,
+  // например, 'paused', 'recalled', 'transferred' и т.д.
 }

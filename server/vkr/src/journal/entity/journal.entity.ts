@@ -53,10 +53,12 @@ export class Journal {
     @Column({name: 'comment', type: 'text', nullable: true})
     comment: string
 
-    @ManyToOne(() => Entry, (entry: Entry) => entry.logs)
+    @ManyToOne(() => Entry, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'entry_id' }) 
     entry: Entry;
 
     @ManyToOne(() => User, (user: User) => user.initiatedEvents)
+    @JoinColumn({ name: 'initiated_by_user_id' }) 
     user: User;
 
 }
