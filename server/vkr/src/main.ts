@@ -34,6 +34,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common'; // Импортируем Logger и другие интерцепторы/пайпы
 import { ConfigService } from '@nestjs/config'; // Импортируем ConfigService
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   // Получаем порт из переменных окружения ДО создания приложения, если нужно для логирования
@@ -41,11 +42,24 @@ async function bootstrap() {
 
   // Создаем приложение NestJS
   // !!! Важно: Устанавливаем уровень логирования здесь для отладки !!!
-  const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'error', 'warn', 'debug', 'verbose'], // Включаем все уровни логирования для отладки
-    // В production, возможно, стоит использовать более высокий уровень, например, ['log', 'error', 'warn']
-  });
+  const app = await NestFactory.create(AppModule, { rawBody: true , logger: ['log', 'error', 'warn', 'debug', 'verbose']}); // Включаем rawBody для доступа к сырым данным
 
+  // Настраиваем body-parser для обработки различных типов контента
+  // Это важно, чтобы контроллер мог получить сырые данные для адаптеров
+  // Порядок важен: сначала более специфичные текстовые/XML, затем JSON и URL-encoded.
+  // Это позволяет вашим адаптерам получать сырые данные, если они ожидают text/xml.
+
+  // *** ПОРЯДОК MIDDLEWARE BODY-PARSER КРИТИЧЕН ***
+  app.use(bodyParser.text({ type: 'application/xml' }));
+  app.use(bodyParser.text({ type: 'text/xml' }));
+  app.use(bodyParser.json()); // Для JSON
+  app.use(bodyParser.urlencoded({ extended: true })); // Для form-urlencoded
+
+
+
+  
+
+ 
   // Получаем ConfigService после создания приложения, если он нужен для других настроек
   const configService = app.get(ConfigService);
 

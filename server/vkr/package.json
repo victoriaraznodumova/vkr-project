@@ -22,9 +22,12 @@
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
     "@types/bcrypt": "^5.0.2",
+    "@types/body-parser": "^1.19.5",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "@types/xml2js": "^0.4.14",
     "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.0",
     "cross-env": "^7.0.3",
     "dotenv": "^16.5.0",
     "handlebars": "^4.7.8",
@@ -39,7 +42,8 @@
     "rimraf": "^6.0.1",
     "rxjs": "^7.2.0",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.24"
+    "typeorm": "^0.3.24",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",

@@ -9,12 +9,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
-// !!! ДОБАВЬТЕ ЭТОТ ИМПОРТ !!!
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { OrganizationsModule } from './organizations/organization.module';
 import { QueueModule } from './queues/queue.module';
 import { JournalModule } from './journal/journal.module';
 import { EntryModule } from './entries/entry.module';
+import { IntegrationModule } from './integration/integration.module';
 
 
 @Module({
@@ -41,6 +41,7 @@ import { EntryModule } from './entries/entry.module';
     QueueModule,
     JournalModule, 
     EntryModule,
+    IntegrationModule, 
 
     MailerModule.forRootAsync({
       imports: [ConfigModule],
