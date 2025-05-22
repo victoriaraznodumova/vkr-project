@@ -22,27 +22,27 @@ import { UserRoleEnum } from '../users/entity/user-role.enum'; // Убедите
 const mockUser: User = {
   userId: 1,
   email: 'test@example.com',
-  passwordHash: 'hashedpassword_user', // ИСПРАВЛЕНО: password -> passwordHash
-  registrationDate: new Date('2023-01-01T00:00:00Z'), // ДОБАВЛЕНО
-  role: UserRoleEnum.USER, // ДОБАВЛЕНО
+  passwordHash: 'hashedpassword_user',
+  registrationDate: new Date('2023-01-01T00:00:00Z'),
+  role: UserRoleEnum.USER,
   entries: [],
-  administrators: [], // ДОБАВЛЕНО
-  queues: [], // ДОБАВЛЕНО
-  initiatedEvents: [], // ДОБАВЛЕНО
-  passwordResetTokens: [], // ДОБАВЛЕНО
+  administrators: [],
+  queues: [],
+  initiatedEvents: [],
+  passwordResetTokens: [],
 };
 
 const mockAdminUser: User = {
   userId: 100,
   email: 'admin@example.com',
-  passwordHash: 'hashedpassword_admin', // ИСПРАВЛЕНО: password -> passwordHash
-  registrationDate: new Date('2023-01-01T00:00:00Z'), // ДОБАВЛЕНО
-  role: UserRoleEnum.ADMIN, // ДОБАВЛЕНО
+  passwordHash: 'hashedpassword_admin',
+  registrationDate: new Date('2023-01-01T00:00:00Z'),
+  role: UserRoleEnum.ADMIN,
   entries: [],
-  administrators: [], // ДОБАВЛЕНО
-  queues: [], // ДОБАВЛЕНО
-  initiatedEvents: [], // ДОБАВЛЕНО
-  passwordResetTokens: [], // ДОБАВЛЕНО
+  administrators: [],
+  queues: [],
+  initiatedEvents: [],
+  passwordResetTokens: [],
 };
 
 const mockEntry: Entry = {
@@ -57,8 +57,8 @@ const mockEntry: Entry = {
   comment: 'Initial entry',
   createdAt: new Date(),
   updatedAt: new Date(),
-  queue: null, // Будет мокироваться отдельно
-  user: null, // Будет мокироваться отдельно
+  queue: null,
+  user: null,
 };
 
 // Mock Queue entities
@@ -75,12 +75,12 @@ const mockOrganizationalQueue: Queue = {
   privateLinkToken: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  createdByUserId: mockAdminUser.userId, // Создана админом
-  visibility: QueueVisibilityEnum.PUBLIC, // Уточняем видимость
-  organizationId: null, // Если нет организации, то null
-  organization: null, // Связь с организацией
-  createdBy: mockAdminUser, // Связь с создателем
-  administrators: [mockAdminUser], // Администраторы очереди
+  createdByUserId: mockAdminUser.userId,
+  visibility: QueueVisibilityEnum.PUBLIC,
+  organizationId: null,
+  organization: null,
+  createdBy: mockAdminUser,
+  administrators: [mockAdminUser],
   entries: [],
   isActive: true,
 };
@@ -98,12 +98,12 @@ const mockSelfOrganizedQueue: Queue = {
   privateLinkToken: 'some-token-123',
   createdAt: new Date(),
   updatedAt: new Date(),
-  createdByUserId: mockUser.userId, // Создана обычным пользователем
-  visibility: QueueVisibilityEnum.PRIVATE, // Уточняем видимость
+  createdByUserId: mockUser.userId,
+  visibility: QueueVisibilityEnum.PRIVATE,
   organizationId: null,
   organization: null,
   createdBy: mockUser,
-  administrators: [], // У самоорганизованных очередей могут быть администраторы, если логика это позволяет
+  administrators: [],
   entries: [],
   isActive: true,
 };
@@ -331,10 +331,11 @@ describe('EntryService', () => {
 
     it('должен выбросить BadRequestException при попытке изменить queueId', async () => {
       const entryToUpdate = { ...mockEntry, userId: mockUser.userId };
-      const updateDtoWithQueueId: UpdateEntryDto = { queueId: 99 };
+      // ИСПРАВЛЕНИЕ: Удаляем явную типизацию UpdateEntryDto для объекта с запрещенным полем
+      const updateDtoWithQueueId = { queueId: 99 };
       jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
 
-      await expect(service.update(entryToUpdate.entryId, updateDtoWithQueueId, mockUser.userId)).rejects.toThrow(
+      await expect(service.update(entryToUpdate.entryId, updateDtoWithQueueId as UpdateEntryDto, mockUser.userId)).rejects.toThrow(
         new BadRequestException('Нельзя изменить queueId записи.'),
       );
       expect(entryRepository.save).not.toHaveBeenCalled();
@@ -342,10 +343,11 @@ describe('EntryService', () => {
 
     it('должен выбросить BadRequestException при попытке изменить userId', async () => {
       const entryToUpdate = { ...mockEntry, userId: mockUser.userId };
-      const updateDtoWithUserId: UpdateEntryDto = { userId: 99 };
+      // ИСПРАВЛЕНИЕ: Удаляем явную типизацию UpdateEntryDto для объекта с запрещенным полем
+      const updateDtoWithUserId = { userId: 99 };
       jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
 
-      await expect(service.update(entryToUpdate.entryId, updateDtoWithUserId, mockUser.userId)).rejects.toThrow(
+      await expect(service.update(entryToUpdate.entryId, updateDtoWithUserId as UpdateEntryDto, mockUser.userId)).rejects.toThrow(
         new BadRequestException('Нельзя изменить userId записи.'),
       );
       expect(entryRepository.save).not.toHaveBeenCalled();

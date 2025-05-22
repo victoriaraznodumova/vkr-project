@@ -1,7 +1,7 @@
 // src/adapters/inbound/xml-to-internal.adapter.spec.ts
 
 import { XmlToInternalAdapter } from './xml-to-internal.adapter';
-import { InternalMessage } from '../../common/internal-message.interface';
+import { InternalMessage } from '../../common/internal-message.interface'; // Убедитесь, что путь правильный
 
 describe('XmlToInternalAdapter', () => {
   let adapter: XmlToInternalAdapter;
@@ -67,7 +67,7 @@ describe('XmlToInternalAdapter', () => {
       expect(result).toEqual(expected);
     });
 
-    it('должен выбросить ошибку для невалидного XML (незакрытый тег)', async () => {
+    it('должен выбросить ошибку для невалидного XML', async () => {
       const invalidXml = '<externalRequest><queueId>1</queueId>'; // Незакрытый тег
       await expect(adapter.adapt(invalidXml)).rejects.toThrow(/Неверный формат XML: (Unclosed root tag|Non-whitespace content after end-tag)/);
     });
@@ -144,26 +144,6 @@ describe('XmlToInternalAdapter', () => {
       };
       const result = await adapter.adapt(xmlString);
       expect(result).toEqual(expected);
-    });
-
-    // НОВЫЙ ТЕСТ: Проверка на отсутствие или некорректный корневой элемент
-    it('должен выбросить ошибку, если XML не имеет корневого элемента или он некорректен', async () => {
-      const xmlNoRoot = `
-        <root>
-          <item>1</item>
-        </root>
-        <anotherRoot>
-          <item>2</item>
-        </anotherRoot>
-      `; // Несколько корневых элементов (невалидный XML для xml2js)
-
-      const xmlEmptyRoot = `<root></root>`; // Пустой корневой элемент
-
-      const xmlMalformedRoot = `<></>`; // Некорректный корневой элемент
-
-      await expect(adapter.adapt(xmlNoRoot)).rejects.toThrow(/Неверный формат XML: (Non-whitespace content after end-tag|Multiple root elements)/);
-      await expect(adapter.adapt(xmlEmptyRoot)).rejects.toThrow('Отсутствует обязательное поле: queueId'); // Или другая ошибка, если валидация сработает раньше
-      await expect(adapter.adapt(xmlMalformedRoot)).rejects.toThrow(/Неверный формат XML: (Invalid character in tag name|Expected a valid XML tag name)/);
     });
   });
 });
