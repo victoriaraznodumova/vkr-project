@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Entry } from 'src/entries/entity/entry.entity';
+import { Entry } from '../../entries/entity/entry.entity';
 import {
   Column,
   Entity,
@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { JournalStatusEnum } from './journal.status.enum';
 import { JournalActionEnum } from './journal.action.enum';
-import { User } from 'src/users/entity/user.entity';
+import { User } from '../../users/entity/user.entity';
 
 @Entity('journal')
 export class Journal {

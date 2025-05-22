@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Queue } from 'src/queues/entity/queue.entity';
-import { User } from 'src/users/entity/user.entity';
+import { Queue } from '../queues/entity/queue.entity';
+import { User } from '../users/entity/user.entity';
 import {
   Entity,
   JoinColumn,

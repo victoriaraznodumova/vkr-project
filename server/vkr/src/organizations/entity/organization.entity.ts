@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Queue } from 'src/queues/entity/queue.entity';
+import { Queue } from '../../queues/entity/queue.entity';
 import {
   Column,
   Entity,

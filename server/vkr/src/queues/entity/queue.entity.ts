@@ -1,19 +1,21 @@
+// src/queues/entity/queue.entity.ts
+
 import { ApiProperty } from '@nestjs/swagger';
-import { Administrator } from 'src/administrators/administrator.entity'; // Убедитесь, что путь правильный
-import { Organization } from 'src/organizations/entity/organization.entity'; // Убедитесь, что путь правильный
-import { Entry } from 'src/entries/entity/entry.entity'; // Убедитесь, что путь правильный
+import { Administrator } from '../../administrators/administrator.entity';
+import { Organization } from '../../organizations/entity/organization.entity';
+import { Entry } from '../../entries/entity/entry.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn, // <-- Добавьте этот импорт
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { QueueTypeEnum } from './queue.type.enum';
 import { QueueVisibilityEnum } from './queue.visibility.enum';
-import { User } from 'src/users/entity/user.entity'; // Убедитесь, что путь правильный
+import { User } from '../../users/entity/user.entity';
 
 @Entity('queues')
 export class Queue {
@@ -67,6 +69,10 @@ export class Queue {
   @Column({ name: 'created_by_user_id', type: 'bigint' })
   createdByUserId: number;
 
+  // НОВОЕ ПОЛЕ: isActive
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
+
   @OneToMany(() => Administrator, (administrator) => administrator.queue)
   administrators: Administrator[];
 
@@ -74,11 +80,11 @@ export class Queue {
   entries: Entry[];
 
   @ManyToOne(() => Organization, (organization: Organization) => organization.queues)
-  @JoinColumn({ name: 'organization_id' }) // <-- ДОБАВЛЕНО: Указываем, что organization_id - это колонка внешнего ключа
+  @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 
   @ManyToOne(() => User, (user: User) => user.queues)
-  @JoinColumn({ name: 'created_by_user_id' }) // <-- ДОБАВЛЕНО: Указываем, что created_by_user_id - это колонка внешнего ключа
+  @JoinColumn({ name: 'created_by_user_id' })
   createdBy: User;
 }
 

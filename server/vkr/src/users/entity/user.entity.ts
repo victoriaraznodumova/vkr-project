@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Administrator } from 'src/administrators/administrator.entity';
-import { PasswordResetToken } from 'src/auth/entity/password-reset-token.entity';
-import { Entry } from 'src/entries/entity/entry.entity';
-import { Journal } from 'src/journal/entity/journal.entity';
-import { Queue } from 'src/queues/entity/queue.entity';
+import { Administrator } from '../../administrators/administrator.entity';
+import { PasswordResetToken } from '../../auth/entity/password-reset-token.entity';
+import { Entry } from '../../entries/entity/entry.entity';
+import { Journal } from '../../journal/entity/journal.entity';
+import { Queue } from '../../queues/entity/queue.entity';
 import {
   Column,
   CreateDateColumn,

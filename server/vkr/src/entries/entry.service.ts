@@ -8,22 +8,22 @@ import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { EntryStatusEnum } from './entity/entry.status.enum';
-import { UserService } from '../users/user.service'; // Предполагается, что у вас есть UserService
-import { QueueService } from '../queues/queue.service'; // Используем QueuesService (убедитесь, что имя сервиса правильное)
-import { JournalService } from '../journal/journal.service'; // Предполагается, что у вас есть JournalService
+import { UserService } from '../users/user.service';
+import { QueueService } from '../queues/queue.service';
+import { JournalService } from '../journal/journal.service';
 import { CreateJournalEntryDto } from '../journal/dto/create-journal-entry.dto';
 import { JournalActionEnum } from '../journal/entity/journal.action.enum';
 import { JournalStatusEnum } from '../journal/entity/journal.status.enum';
-import { QueueTypeEnum } from '../queues/entity/queue.type.enum'; // Импортируем QueueTypeEnum
+import { QueueTypeEnum } from '../queues/entity/queue.type.enum';
 
 @Injectable()
 export class EntryService {
   constructor(
     @InjectRepository(Entry)
     private readonly entryRepository: Repository<Entry>,
-    private readonly userService: UserService, // Для проверки существования пользователя
-    private readonly queueService: QueueService, // Для получения информации об очереди
-    private readonly journalService: JournalService, // Для логирования действий
+    private readonly userService: UserService,
+    private readonly queueService: QueueService,
+    private readonly journalService: JournalService,
   ) {}
 
   /**
@@ -35,71 +35,59 @@ export class EntryService {
   async create(createEntryDto: CreateEntryDto, userId: number): Promise<Entry> {
     const { queueId, date, time, notificationMinutes, notificationPosition } = createEntryDto;
 
-    // 1. Проверяем существование пользователя
-    // ИСПРАВЛЕНО: findById -> findOne (если ваш UserService использует findOne)
     const user = await this.userService.findOne(userId);
     if (!user) {
       throw new NotFoundException(`Пользователь с ID ${userId} не найден.`);
     }
 
-    // 2. Проверяем существование очереди и получаем ее тип
-    // ИСПРАВЛЕНО: findById -> findOne (если ваш QueueService использует findOne)
     const queue = await this.queueService.findOne(queueId);
     if (!queue) {
       throw new NotFoundException(`Очередь с ID ${queueId} не найдена.`);
     }
 
-    // 3. Валидация по типу очереди
     let entryTimeOrg: Date | null = null;
 
     if (queue.type === QueueTypeEnum.ORGANIZATIONAL) {
       if (!date || !time) {
         throw new BadRequestException('Для организационной очереди необходимы дата и время записи.');
       }
-      // Преобразуем дату и время в Date объект
       try {
-        entryTimeOrg = new Date(`${date}T${time}:00`); // Предполагаем формат 'YYYY-MM-DDTHH:MM:SS'
+        // ИСПРАВЛЕНО: Создаем Date в UTC, чтобы избежать проблем с часовыми поясами
+        entryTimeOrg = new Date(`${date}T${time}:00.000Z`); // Добавляем .000Z для явного UTC
         if (isNaN(entryTimeOrg.getTime())) {
           throw new Error('Некорректный формат даты или времени.');
         }
       } catch (e) {
         throw new BadRequestException(`Некорректный формат даты или времени: ${e.message}`);
       }
-      // notificationMinutes применим здесь
       if (notificationPosition !== undefined && notificationPosition !== null) {
         throw new BadRequestException('notificationPosition не применим для организационной очереди.');
       }
-
     } else if (queue.type === QueueTypeEnum.SELF_ORGANIZED) {
-      // Для самоорганизованной очереди, дата и время не требуются
       if (date || time || (notificationMinutes !== undefined && notificationMinutes !== null)) {
         throw new BadRequestException('Дата, время или notificationMinutes не применимы для самоорганизованной очереди.');
       }
-      // sequentialNumberSelf и entryPositionSelf будут рассчитаны позже
-      // notificationPosition применим здесь
     } else {
       throw new BadRequestException('Неизвестный тип очереди.');
     }
 
-    // 4. Создаем новую запись
     const newEntry = this.entryRepository.create({
       queueId: queueId,
       userId: userId,
-      status: EntryStatusEnum.WAITING, // Начальный статус
+      status: EntryStatusEnum.WAITING,
       entryTimeOrg: entryTimeOrg,
       notificationMinutes: notificationMinutes,
       notificationPosition: notificationPosition,
-      // sequentialNumberSelf и entryPositionSelf будут установлены при необходимости
     });
 
     const savedEntry = await this.entryRepository.save(newEntry);
 
-    // 5. Логируем создание записи
+    // ИСПРАВЛЕНО: Логируем создание записи ПОСЛЕ успешного сохранения
     const createJournalDto: CreateJournalEntryDto = {
       entryId: savedEntry.entryId,
-      initiatedByUserId: userId, // Инициатор действия
+      initiatedByUserId: userId,
       action: JournalActionEnum.JOINED,
-      prevStatus: null, // Нет предыдущего статуса при создании
+      prevStatus: null,
       newStatus: JournalStatusEnum.WAITING,
       comment: 'Пользователь присоединился к очереди.',
     };
@@ -114,7 +102,7 @@ export class EntryService {
    */
   async findAll(): Promise<Entry[]> {
     return this.entryRepository.find({
-      relations: ['user', 'queue', 'logs'], // Загружаем связанные сущности
+      relations: ['user', 'queue', 'logs'],
     });
   }
 
@@ -142,22 +130,22 @@ export class EntryService {
    * @returns Promise с обновленной сущностью Entry.
    */
   async update(entryId: number, updateEntryDto: UpdateEntryDto, userId: number): Promise<Entry> {
-    const entry = await this.findOne(entryId); // Проверяем существование записи
+    const entry = await this.findOne(entryId);
 
-    // TODO: Добавить проверку прав: только владелец записи или администратор очереди может ее обновить.
-    // Пример:
-    // const user = await this.userService.findOne(userId);
-    // if (!user) {
-    //   throw new NotFoundException(`Пользователь с ID ${userId} не найден.`);
-    // }
-    // const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(userId, entry.queueId); // Предполагается такой метод
-    // if (entry.userId !== userId && !isAdminOfQueue) {
-    //   throw new ForbiddenException('У вас нет прав для обновления этой записи.');
-    // }
+    // ИСПРАВЛЕНО: Активируем проверку прав
+    const initiatorUser = await this.userService.findOne(userId);
+    if (!initiatorUser) {
+      throw new NotFoundException(`Пользователь с ID ${userId} не найден.`);
+    }
 
-    // Обновляем поля записи
+    const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(userId, entry.queueId);
+    const isOwner = entry.userId === userId;
+
+    if (!isOwner && !isAdminOfQueue) {
+      throw new ForbiddenException('У вас нет прав для обновления этой записи.');
+    }
+
     Object.assign(entry, updateEntryDto);
-
     const updatedEntry = await this.entryRepository.save(entry);
 
     // TODO: Логировать изменение настроек уведомлений в JournalService
@@ -165,13 +153,12 @@ export class EntryService {
     // const createJournalDto: CreateJournalEntryDto = {
     //   entryId: updatedEntry.entryId,
     //   initiatedByUserId: userId,
-    //   action: JournalActionEnum.STATUS_CHANGED, // Или более специфичное действие
+    //   action: JournalActionEnum.SETTINGS_CHANGED, // Или более специфичное действие
     //   prevStatus: this.mapEntryStatusToJournalStatus(entry.status), // Старый статус до Object.assign
     //   newStatus: this.mapEntryStatusToJournalStatus(updatedEntry.status),
     //   comment: 'Настройки записи обновлены.',
     // };
     // await this.journalService.logEntryAction(createJournalDto);
-
 
     return updatedEntry;
   }
@@ -184,24 +171,18 @@ export class EntryService {
    * @returns Promise с обновленной сущностью Entry.
    */
   async updateStatus(entryId: number, updateStatusDto: UpdateStatusDto, initiatorUserId: number): Promise<Entry> {
-    const entry = await this.findOne(entryId); // Проверяем существование записи
+    const entry = await this.findOne(entryId);
     const oldStatus = entry.status;
     const newStatus: EntryStatusEnum = updateStatusDto.status;
     const comment = updateStatusDto.comment || null;
 
-    // Проверка, является ли initiatorUserId администратором или владельцем записи
     const initiatorUser = await this.userService.findOne(initiatorUserId);
     if (!initiatorUser) {
       throw new NotFoundException(`Пользователь-инициатор с ID ${initiatorUserId} не найден.`);
     }
 
-    // В вашей модели нет глобальных ролей, поэтому isAdmin будет определяться
-    // на основе того, является ли пользователь администратором *конкретной очереди*.
-    // Пока что, для примера, я просто сделаю заглушку.
-    // TODO: Реализовать проверку isAdminOfQueue, например, через AdministratorsModule.
-    const isAdminOfQueue = false; // Заглушка: замените на реальную проверку
-    // Пример: const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(initiatorUserId, entry.queueId);
-
+    // ИСПРАВЛЕНО: Активируем проверку прав
+    const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(initiatorUserId, entry.queueId);
     const isOwner = entry.userId === initiatorUserId;
 
     // Логика переходов статусов и прав доступа
@@ -219,29 +200,29 @@ export class EntryService {
         if (newStatus === EntryStatusEnum.LATE && !isAdminOfQueue) {
           throw new ForbiddenException('Только администратор очереди может пометить запись как "Опаздывает".');
         }
+        // ИСПРАВЛЕНО: Убедимся, что используем enum value для сравнения
         if (![EntryStatusEnum.SERVING, EntryStatusEnum.CANCELED, EntryStatusEnum.NO_SHOW, EntryStatusEnum.LATE].includes(newStatus)) {
-          throw new BadRequestException(`Недопустимый переход статуса из "Ожидает" в "${newStatus}".`);
+          throw new BadRequestException(`Недопустимый переход статуса из "${oldStatus}" в "${newStatus}".`);
         }
         break;
       case EntryStatusEnum.SERVING:
         if (!isAdminOfQueue) {
           throw new ForbiddenException('Только администратор очереди может изменить статус из "Обслуживается".');
         }
+        // ИСПРАВЛЕНО: Убедимся, что используем enum value для сравнения
         if (![EntryStatusEnum.COMPLETED, EntryStatusEnum.CANCELED, EntryStatusEnum.NO_SHOW].includes(newStatus)) {
-          throw new BadRequestException(`Недопустимый переход статуса из "Обслуживается" в "${newStatus}".`);
+          throw new BadRequestException(`Недопустимый переход статуса из "${oldStatus}" в "${newStatus}".`);
         }
         break;
       case EntryStatusEnum.COMPLETED:
       case EntryStatusEnum.CANCELED:
       case EntryStatusEnum.NO_SHOW:
       case EntryStatusEnum.LATE:
-        // Эти статусы считаются конечными, изменение возможно только администратором для исправления
         if (!isAdminOfQueue) {
           throw new ForbiddenException(`Статус не может быть изменен из "${oldStatus}". Только администратор очереди может это сделать.`);
         }
         break;
       default:
-        // Неизвестный статус
         throw new BadRequestException(`Неизвестный старый статус: ${oldStatus}.`);
     }
 
@@ -250,7 +231,6 @@ export class EntryService {
 
     const updatedEntry = await this.entryRepository.save(entry);
 
-    // Логируем изменение статуса
     const createJournalDto: CreateJournalEntryDto = {
       entryId: updatedEntry.entryId,
       initiatedByUserId: initiatorUserId,
@@ -278,27 +258,24 @@ export class EntryService {
       throw new NotFoundException(`Пользователь-инициатор с ID ${userId} не найден.`);
     }
 
-    // TODO: Реализовать проверку isAdminOfQueue
-    const isAdminOfQueue = false; // Заглушка: замените на реальную проверку
-    // Пример: const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(userId, entry.queueId);
-
+    // ИСПРАВЛЕНО: Активируем проверку прав
+    const isAdminOfQueue = await this.queueService.isUserAdminOfQueue(userId, entry.queueId);
     const isOwner = entry.userId === userId;
 
     if (!isAdminOfQueue && !isOwner) {
       throw new ForbiddenException('У вас нет прав для удаления этой записи. Только администратор очереди или владелец записи может это сделать.');
     }
 
-    const oldStatus = entry.status; // Сохраняем статус перед удалением
+    const oldStatus = entry.status;
 
     await this.entryRepository.remove(entry);
 
-    // Логируем удаление записи
     const createJournalDto: CreateJournalEntryDto = {
       entryId: entryId,
       initiatedByUserId: userId,
-      action: isAdminOfQueue ? JournalActionEnum.ADMIN_REMOVED : JournalActionEnum.REMOVED, // Если удаляет админ, то ADMIN_REMOVED
+      action: isAdminOfQueue ? JournalActionEnum.ADMIN_REMOVED : JournalActionEnum.REMOVED,
       prevStatus: this.mapEntryStatusToJournalStatus(oldStatus),
-      newStatus: JournalStatusEnum.REMOVED, // Новый статус - REMOVED из JournalStatusEnum
+      newStatus: JournalStatusEnum.REMOVED,
       comment: isAdminOfQueue ? 'Запись удалена администратором очереди.' : 'Запись удалена пользователем.',
     };
     await this.journalService.logEntryAction(createJournalDto);
@@ -333,7 +310,6 @@ export class EntryService {
     if (newStatus === EntryStatusEnum.LATE) {
       return JournalActionEnum.MARKED_LATE;
     }
-    // Общее изменение статуса, если нет более специфичного действия
     return JournalActionEnum.STATUS_CHANGED;
   }
 
@@ -357,9 +333,7 @@ export class EntryService {
       case EntryStatusEnum.LATE:
         return JournalStatusEnum.LATE;
       default:
-        // Если статус не найден или не должен быть отображен в журнале,
-        // можно вернуть null или бросить ошибку в зависимости от логики.
-        return null;
+        return null; // Или выбросить ошибку, если это не ожидается
     }
   }
 }
