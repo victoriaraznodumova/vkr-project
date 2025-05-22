@@ -3,7 +3,7 @@
  * DTO для обновления статуса записи в очереди.
  * Используется, например, администратором очереди.
  */
-import { IsNotEmpty, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { EntryStatusEnum } from '../entity/entry.status.enum'; // !!! ОЧЕНЬ ВАЖНО: Убедитесь, что этот импорт правильный и указывает на ваш EntryStatusEnum !!!
 
@@ -25,7 +25,8 @@ export class UpdateStatusDto {
   // а также проверка прав пользователя, должны выполняться в сервисе.
 
 
-  comment: string;
+  @IsOptional()
+  comment?: string;
 }
 
   // Примечание: Проверка допустимости перехода из текущего статуса в новый,

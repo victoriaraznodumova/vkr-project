@@ -46,6 +46,10 @@ export class CreateEntryDto {
   // @ValidateIf(o => o.queueType === QueueType.SELF_ORGANIZED) // Пример условной валидации
   notificationPosition?: number;
 
+
+  @IsOptional()
+  comment?: string
+
   // Примечание: Условная валидация в DTO может потребовать передачи типа очереди с фронтенда.
   // Альтернативно, проверка обязательности date/time/notificationMinutes/notificationPosition
   // выполняется в сервисе после получения типа очереди по queueId.

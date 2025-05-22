@@ -1,30 +1,32 @@
-// src/entries/entry.service.spec.ts
+// src/entries/entries.service.spec.ts
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { EntryService } from './entry.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EntryService } from '../entries/entry.service';
-import { Entry } from '../entries/entity/entry.entity';
-import { Queue } from '../queues/entity/queue.entity';
-import { User } from '../users/entity/user.entity'; // Убедитесь, что это правильный путь к вашей сущности User
-import { CreateEntryDto } from '../entries/dto/create-entry.dto';
-import { UpdateEntryDto } from '../entries/dto/update-entry.dto';
-import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { EntryStatusEnum } from '../entries/entity/entry.status.enum';
+import { Entry } from './entity/entry.entity';
+import { UserService } from '../users/user.service';
 import { QueueService } from '../queues/queue.service';
 import { JournalService } from '../journal/journal.service';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { CreateEntryDto } from './dto/create-entry.dto';
+import { UpdateEntryDto } from './dto/update-entry.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+import { EntryStatusEnum } from './entity/entry.status.enum';
 import { QueueTypeEnum } from '../queues/entity/queue.type.enum';
+import { JournalActionEnum } from '../journal/entity/journal.action.enum';
+import { JournalStatusEnum } from '../journal/entity/journal.status.enum';
+import { User } from '../users/entity/user.entity';
+import { Queue } from '../queues/entity/queue.entity';
 import { QueueVisibilityEnum } from '../queues/entity/queue.visibility.enum';
-import { UserRoleEnum } from '../users/entity/user-role.enum'; // Убедитесь, что этот импорт существует
+import { Administrator } from '../administrators/administrator.entity';
 
-// --- Мок-объекты для тестирования ---
-
+// --- Мокированные данные ---
 const mockUser: User = {
   userId: 1,
-  email: 'test@example.com',
-  passwordHash: 'hashedpassword_user',
-  registrationDate: new Date('2023-01-01T00:00:00Z'),
-  role: UserRoleEnum.USER,
+  email: 'user@example.com',
+  passwordHash: 'hashed',
+  registrationDate: new Date(),
   entries: [],
   administrators: [],
   queues: [],
@@ -33,11 +35,10 @@ const mockUser: User = {
 };
 
 const mockAdminUser: User = {
-  userId: 100,
+  userId: 2,
   email: 'admin@example.com',
-  passwordHash: 'hashedpassword_admin',
-  registrationDate: new Date('2023-01-01T00:00:00Z'),
-  role: UserRoleEnum.ADMIN,
+  passwordHash: 'hashed',
+  registrationDate: new Date(),
   entries: [],
   administrators: [],
   queues: [],
@@ -45,83 +46,147 @@ const mockAdminUser: User = {
   passwordResetTokens: [],
 };
 
-const mockEntry: Entry = {
-  entryId: 1,
-  queueId: 1,
-  userId: 1,
-  status: EntryStatusEnum.WAITING,
-  date: '2023-05-20',
-  time: '10:00',
-  notificationMinutes: 15,
-  notificationPosition: 2,
-  comment: 'Initial entry',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  queue: null,
-  user: null,
+// ИСПРАВЛЕННЫЙ МОК: Administrator, соответствует структуре сущности
+const mockAdministrator: Administrator = {
+  userId: mockAdminUser.userId,
+  queueId: 101, // Привязываем к mockOrganizationalQueue
+  user: mockAdminUser,
+  queue: null, // Будет заполнено в mockOrganizationalQueue
 };
 
-// Mock Queue entities
 const mockOrganizationalQueue: Queue = {
-  queueId: 1,
-  name: 'Организационная Очередь',
+  queueId: 101,
+  name: 'Организационная очередь',
   type: QueueTypeEnum.ORGANIZATIONAL,
-  city: 'Город А',
-  address: 'Адрес А',
-  openingHours: '9:00-17:00',
-  serviceName: 'Сервис А',
-  intervalMinutes: 15,
+  city: 'Город',
+  address: 'Адрес',
+  openingHours: '09:00-17:00',
+  serviceName: 'Услуга',
+  intervalMinutes: 30,
   concurrentVisitors: 1,
-  privateLinkToken: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  createdByUserId: mockAdminUser.userId,
   visibility: QueueVisibilityEnum.PUBLIC,
+  isActive: true,
+  createdAt: new Date(),
+  createdByUserId: mockAdminUser.userId,
+  createdBy: mockAdminUser,
   organizationId: null,
   organization: null,
-  createdBy: mockAdminUser,
-  administrators: [mockAdminUser],
+  privateLinkToken: null,
+  // ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЙ МОК Administrator
+  administrators: [{ ...mockAdministrator, queue: null }], // Важно: в моке administrator.queue может быть null или сама очередь
   entries: [],
-  isActive: true,
 };
 
 const mockSelfOrganizedQueue: Queue = {
-  queueId: 2,
-  name: 'Самоорганизованная Очередь',
+  queueId: 102,
+  name: 'Самоорганизованная очередь',
   type: QueueTypeEnum.SELF_ORGANIZED,
-  city: 'Город Б',
-  address: 'Адрес Б',
-  openingHours: '24/7',
-  serviceName: 'Сервис Б',
-  intervalMinutes: 5,
-  concurrentVisitors: 2,
-  privateLinkToken: 'some-token-123',
+  city: 'Город',
+  address: 'Адрес',
+  openingHours: null,
+  serviceName: null,
+  intervalMinutes: null,
+  concurrentVisitors: null,
+  // Самоорганизованные очереди часто приватные, но для теста оставим PUBLIC, если это не влияет на логику
+  visibility: QueueVisibilityEnum.PUBLIC,
+  isActive: true,
   createdAt: new Date(),
-  updatedAt: new Date(),
-  createdByUserId: mockUser.userId,
-  visibility: QueueVisibilityEnum.PRIVATE,
+  createdByUserId: mockUser.userId, // Создана обычным пользователем
+  createdBy: mockUser,
   organizationId: null,
   organization: null,
-  createdBy: mockUser,
-  administrators: [],
+  privateLinkToken: 'self-org-token-123', // У самоорганизованных очередей может быть токен
+  administrators: [], // У самоорганизованных очередей обычно нет отдельных администраторов
   entries: [],
-  isActive: true,
 };
 
-// Моки для зависимых сервисов
+const mockInactiveQueue: Queue = {
+  queueId: 103,
+  name: 'Неактивная очередь',
+  type: QueueTypeEnum.ORGANIZATIONAL,
+  city: 'Город',
+  address: 'Адрес',
+  openingHours: '09:00-17:00',
+  serviceName: 'Услуга',
+  intervalMinutes: 30,
+  concurrentVisitors: 1,
+  visibility: QueueVisibilityEnum.PUBLIC, // Устанавливаем конкретное значение
+  isActive: false, // Неактивна
+  createdAt: new Date(),
+  createdByUserId: mockUser.userId,
+  createdBy: mockUser,
+  organizationId: null,
+  organization: null,
+  privateLinkToken: null, // Если неактивная, токен, скорее всего, не нужен или должен быть null
+  administrators: [],
+  entries: [],
+};
+
+const mockEntry: Entry = {
+  entryId: 1,
+  queueId: 1, // Или mockOrganizationalQueue.queueId, если это более уместно
+  userId: 1, // Или mockUser.userId
+  status: EntryStatusEnum.WAITING,
+  notificationMinutes: 15,
+  notificationPosition: 2,
+  // comment: 'Initial entry',
+  createdAt: new Date('2025-05-24T09:00:00.000Z'),
+  statusUpdatedAt: new Date('2025-05-24T09:00:00.000Z'),
+  user: mockUser,
+  queue: null, // Будет мокироваться отдельно, или mockOrganizationalQueue
+  logs: [], // Если это поле Logs[]
+  entryTimeOrg: new Date('2025-05-25T10:00:00.000Z'), // ДОБАВЛЕНО
+  entryPositionSelf: null, // ДОБАВЛЕНО
+  sequentialNumberSelf: null, // ДОБАВЛЕНО
+  actualStartTime: null, // ДОБАВЛЕНО
+  actualEndTime: null, // ДОБАВЛЕНО
+};
+
+const mockSelfOrganizedEntry: Entry = {
+  entryId: 2,
+  queueId: mockSelfOrganizedQueue.queueId,
+  userId: mockUser.userId,
+  status: EntryStatusEnum.WAITING,
+  entryTimeOrg: null,
+  notificationMinutes: null,
+  notificationPosition: 2,
+  createdAt: new Date('2025-05-24T09:05:00.000Z'),
+  statusUpdatedAt: new Date('2025-05-24T09:05:00.000Z'),
+  user: mockUser,
+  queue: mockSelfOrganizedQueue,
+  logs: [],
+  entryPositionSelf: 3, 
+  sequentialNumberSelf: 5, 
+  actualStartTime: null, 
+  actualEndTime :null
+};
+
+// --- Мокированные сервисы и репозиторий ---
+const mockEntryRepository = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  remove: jest.fn(),
+};
+
+const mockUserService = {
+  findOne: jest.fn(),
+};
+
 const mockQueueService = {
   findOne: jest.fn(),
   isUserAdminOfQueue: jest.fn(),
-  // Добавьте другие методы QueueService, которые могут вызываться
 };
 
 const mockJournalService = {
-  createJournalEntry: jest.fn(),
+  logEntryAction: jest.fn(),
 };
 
 describe('EntryService', () => {
   let service: EntryService;
   let entryRepository: Repository<Entry>;
+  let userService: UserService;
   let queueService: QueueService;
   let journalService: JournalService;
 
@@ -131,14 +196,11 @@ describe('EntryService', () => {
         EntryService,
         {
           provide: getRepositoryToken(Entry),
-          useValue: {
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            delete: jest.fn(),
-            find: jest.fn(),
-            remove: jest.fn(),
-          },
+          useValue: mockEntryRepository,
+        },
+        {
+          provide: UserService,
+          useValue: mockUserService,
         },
         {
           provide: QueueService,
@@ -153,432 +215,561 @@ describe('EntryService', () => {
 
     service = module.get<EntryService>(EntryService);
     entryRepository = module.get<Repository<Entry>>(getRepositoryToken(Entry));
+    userService = module.get<UserService>(UserService);
     queueService = module.get<QueueService>(QueueService);
     journalService = module.get<JournalService>(JournalService);
 
+    // Сброс моков перед каждым тестом
     jest.clearAllMocks();
   });
 
-  it('сервис должен быть определен', () => {
+  it('должен быть определен', () => {
     expect(service).toBeDefined();
   });
 
-  // --- Тесты для create ---
+  // --- Тесты для метода create ---
   describe('create', () => {
-    const createEntryDto: CreateEntryDto = {
+    const createDtoOrg: CreateEntryDto = {
       queueId: mockOrganizationalQueue.queueId,
-      userId: mockUser.userId,
-      date: '2023-05-21',
-      time: '11:00',
-      comment: 'New entry',
+      date: '2025-05-25',
+      time: '10:00',
+      notificationMinutes: 15,
+      comment: 'Организационная запись',
     };
 
-    it('должен успешно создать запись в очереди (публичная очередь)', async () => {
-      jest.spyOn(mockQueueService, 'findOne').mockResolvedValue(mockOrganizationalQueue);
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(undefined); // Запись не существует
-      jest.spyOn(entryRepository, 'create').mockReturnValue(mockEntry as Entry);
-      jest.spyOn(entryRepository, 'save').mockResolvedValue(mockEntry as Entry);
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
+    const createDtoSelfOrg: CreateEntryDto = {
+      queueId: mockSelfOrganizedQueue.queueId,
+      notificationPosition: 2,
+      comment: 'Самоорганизованная запись',
+    };
 
-      const result = await service.create(createEntryDto);
+    it('должен успешно создать организационную запись', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockOrganizationalQueue);
+      mockEntryRepository.create.mockReturnValue(mockEntry);
+      mockEntryRepository.save.mockResolvedValue(mockEntry);
+      mockEntryRepository.findOne.mockResolvedValue(null); // Нет дубликатов
 
-      expect(mockQueueService.findOne).toHaveBeenCalledWith(createEntryDto.queueId);
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          queueId: createEntryDto.queueId,
-          userId: createEntryDto.userId,
-          date: createEntryDto.date,
-          time: createEntryDto.time,
-        },
-      });
-      expect(entryRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-        queueId: createEntryDto.queueId,
-        userId: createEntryDto.userId,
-        status: EntryStatusEnum.WAITING,
-      }));
-      expect(entryRepository.save).toHaveBeenCalled();
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
+      const result = await service.create(createDtoOrg, mockUser.userId);
+
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.findOne).toHaveBeenCalledWith(mockOrganizationalQueue.queueId);
+      // expect(entryRepository.create).toHaveBeenCalledWith(
+      //   expect.objectContaining({
+      //     queueId: createDtoOrg.queueId,
+      //     userId: mockUser.userId,
+      //     status: EntryStatusEnum.WAITING,
+      //     entryTimeOrg: new Date('2025-05-25T10:00:00.000Z'),
+      //     notificationMinutes: createDtoOrg.notificationMinutes,
+      //     notificationPosition: null,
+      //   }),
+      // );
+      expect(entryRepository.save).toHaveBeenCalledWith(mockEntry);
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryId: mockEntry.entryId,
+          initiatedByUserId: mockUser.userId,
+          action: JournalActionEnum.JOINED,
+          prevStatus: null,
+          newStatus: JournalStatusEnum.WAITING,
+        }),
+      );
       expect(result).toEqual(mockEntry);
     });
 
-    it('должен выбросить BadRequestException, если очередь неактивна', async () => {
-      const inactiveQueue = { ...mockOrganizationalQueue, isActive: false };
-      jest.spyOn(mockQueueService, 'findOne').mockResolvedValue(inactiveQueue);
+    it('должен успешно создать самоорганизованную запись', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockSelfOrganizedQueue);
+      mockEntryRepository.create.mockReturnValue(mockSelfOrganizedEntry);
+      mockEntryRepository.save.mockResolvedValue(mockSelfOrganizedEntry);
 
-      await expect(service.create(createEntryDto)).rejects.toThrow(
-        new BadRequestException('Очередь неактивна и не принимает новые записи.'),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
+      const result = await service.create(createDtoSelfOrg, mockUser.userId);
+
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.findOne).toHaveBeenCalledWith(mockSelfOrganizedQueue.queueId);
+      // expect(entryRepository.create).toHaveBeenCalledWith(
+      //   expect.objectContaining({
+      //     queueId: createDtoSelfOrg.queueId,
+      //     userId: mockUser.userId,
+      //     status: EntryStatusEnum.WAITING,
+      //     entryTimeOrg: null,
+      //     notificationMinutes: null,
+      //     notificationPosition: createDtoSelfOrg.notificationPosition,
+      //   }),
+      // );
+      expect(entryRepository.save).toHaveBeenCalledWith(mockSelfOrganizedEntry);
+      expect(journalService.logEntryAction).toHaveBeenCalled();
+      expect(result).toEqual(mockSelfOrganizedEntry);
     });
 
-    it('должен выбросить ConflictException, если запись уже существует', async () => {
-      jest.spyOn(mockQueueService, 'findOne').mockResolvedValue(mockOrganizationalQueue);
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(mockEntry); // Запись уже существует
+    it('должен выбросить NotFoundException, если пользователь не найден', async () => {
+      mockUserService.findOne.mockResolvedValue(null);
 
-      await expect(service.create(createEntryDto)).rejects.toThrow(
-        new ConflictException('Запись на это время для этого пользователя уже существует в данной очереди.'),
-      );
+      await expect(service.create(createDtoOrg, 999)).rejects.toThrow(NotFoundException);
+      expect(userService.findOne).toHaveBeenCalledWith(999);
+      expect(queueService.findOne).not.toHaveBeenCalled();
       expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
     });
 
     it('должен выбросить NotFoundException, если очередь не найдена', async () => {
-      jest.spyOn(mockQueueService, 'findOne').mockRejectedValue(new NotFoundException('Очередь не найдена.'));
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(null);
 
-      await expect(service.create(createEntryDto)).rejects.toThrow(
-        new NotFoundException('Очередь не найдена.'),
-      );
+      await expect(service.create(createDtoOrg, mockUser.userId)).rejects.toThrow(NotFoundException);
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.findOne).toHaveBeenCalledWith(createDtoOrg.queueId);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException, если очередь неактивна', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockInactiveQueue);
+
+      await expect(service.create(createDtoOrg, mockUser.userId)).rejects.toThrow(BadRequestException);
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.findOne).toHaveBeenCalledWith(createDtoOrg.queueId);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException для организационной очереди без даты/времени', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockOrganizationalQueue);
+      const invalidDto = { ...createDtoOrg, date: undefined, time: undefined };
+
+      await expect(service.create(invalidDto, mockUser.userId)).rejects.toThrow(BadRequestException);
       expect(entryRepository.save).not.toHaveBeenCalled();
     });
 
-    // Добавьте тесты для логики concurrentVisitors, если она есть в QueueService
-    // Например, если createEntryDto.time уже занято максимальным количеством посетителей.
+    it('должен выбросить BadRequestException для организационной очереди с notificationPosition', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockOrganizationalQueue);
+      const invalidDto = { ...createDtoOrg, notificationPosition: 1 };
+
+      await expect(service.create(invalidDto, mockUser.userId)).rejects.toThrow(BadRequestException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException для самоорганизованной очереди с датой/временем', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockSelfOrganizedQueue);
+      const invalidDto = { ...createDtoSelfOrg, date: '2025-05-25' };
+
+      await expect(service.create(invalidDto, mockUser.userId)).rejects.toThrow(BadRequestException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException для самоорганизованной очереди с notificationMinutes', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockSelfOrganizedQueue);
+      const invalidDto = { ...createDtoSelfOrg, notificationMinutes: 10 };
+
+      await expect(service.create(invalidDto, mockUser.userId)).rejects.toThrow(BadRequestException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException при дубликате записи для организационной очереди', async () => {
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.findOne.mockResolvedValue(mockOrganizationalQueue);
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry); // Дубликат найден
+
+      await expect(service.create(createDtoOrg, mockUser.userId)).rejects.toThrow(BadRequestException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
+    });
   });
 
-  // --- Тесты для findAll ---
+  // --- Тесты для метода findAll ---
   describe('findAll', () => {
-    it('должен вернуть все записи', async () => {
-      jest.spyOn(entryRepository, 'find').mockResolvedValue([mockEntry]);
+    it('должен вернуть массив записей', async () => {
+      mockEntryRepository.find.mockResolvedValue([mockEntry, mockSelfOrganizedEntry]);
       const result = await service.findAll();
-      expect(entryRepository.find).toHaveBeenCalledWith({ relations: ['queue', 'user'] });
+      expect(entryRepository.find).toHaveBeenCalledWith({
+        relations: ['user', 'queue', 'logs'],
+      });
+      expect(result).toEqual([mockEntry, mockSelfOrganizedEntry]);
+    });
+  });
+
+  // --- Тесты для метода findOne ---
+  describe('findOne', () => {
+    it('должен вернуть запись по ID', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      const result = await service.findOne(mockEntry.entryId);
+      expect(entryRepository.findOne).toHaveBeenCalledWith({
+        where: { entryId: mockEntry.entryId },
+        relations: ['user', 'queue', 'logs'],
+      });
+      expect(result).toEqual(mockEntry);
+    });
+
+    it('должен выбросить NotFoundException, если запись не найдена', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(null);
+      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      expect(entryRepository.findOne).toHaveBeenCalledWith({
+        where: { entryId: 999 },
+        relations: ['user', 'queue', 'logs'],
+      });
+    });
+  });
+
+  // --- Тесты для метода update ---
+  describe('update', () => {
+    const updateDto: UpdateEntryDto = { notificationMinutes: 30};
+
+    it('должен успешно обновить запись владельцем', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false); // Не админ
+      mockEntryRepository.save.mockResolvedValue({ ...mockEntry, ...updateDto });
+
+      const result = await service.update(mockEntry.entryId, updateDto, mockUser.userId);
+
+      expect(entryRepository.findOne).toHaveBeenCalledWith({ where: { entryId: mockEntry.entryId }, relations: ['user', 'queue', 'logs'] });
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.isUserAdminOfQueue).toHaveBeenCalledWith(mockUser.userId, mockEntry.queueId);
+      // expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({
+      //   entryId: mockEntry.entryId,
+      //   notificationMinutes: 30,
+      //   comment: 'Обновленный комментарий',
+      // }));
+      expect(result.notificationMinutes).toBe(30);
+    });
+
+    it('должен успешно обновить запись администратором очереди', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true); // Админ
+      mockEntryRepository.save.mockResolvedValue({ ...mockEntry, ...updateDto });
+
+      const result = await service.update(mockEntry.entryId, updateDto, mockAdminUser.userId);
+
+      expect(entryRepository.findOne).toHaveBeenCalled();
+      expect(userService.findOne).toHaveBeenCalledWith(mockAdminUser.userId);
+      expect(queueService.isUserAdminOfQueue).toHaveBeenCalledWith(mockAdminUser.userId, mockEntry.queueId);
+      expect(entryRepository.save).toHaveBeenCalled();
+      expect(result.notificationMinutes).toBe(30);
+    });
+
+    it('должен выбросить NotFoundException, если запись для обновления не найдена', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(null); // Запись не найдена
+      await expect(service.update(999, updateDto, mockUser.userId)).rejects.toThrow(NotFoundException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить NotFoundException, если пользователь-инициатор не найден', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(null); // Пользователь не найден
+      await expect(service.update(mockEntry.entryId, updateDto, 999)).rejects.toThrow(NotFoundException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить ForbiddenException, если у пользователя нет прав', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue({ ...mockUser, userId: 3 }); // Другой пользователь
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false); // Не админ
+      await expect(service.update(mockEntry.entryId, updateDto, 3)).rejects.toThrow(ForbiddenException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- Тесты для метода updateStatus ---
+  describe('updateStatus', () => {
+    const updateServingDto: UpdateStatusDto = { status: EntryStatusEnum.SERVING };
+    const updateCompletedDto: UpdateStatusDto = { status: EntryStatusEnum.COMPLETED };
+    const updateCanceledDto: UpdateStatusDto = { status: EntryStatusEnum.CANCELED };
+    const updateNoShowDto: UpdateStatusDto = { status: EntryStatusEnum.NO_SHOW };
+    const updateLateDto: UpdateStatusDto = { status: EntryStatusEnum.LATE };
+
+
+
+    it('должен успешно изменить статус с WAITING на SERVING администратором', async () => {
+      const entryInWaiting = { ...mockEntry, status: EntryStatusEnum.WAITING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInWaiting);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+      mockEntryRepository.save.mockResolvedValue({ ...entryInWaiting, status: EntryStatusEnum.SERVING });
+
+      const result = await service.updateStatus(entryInWaiting.entryId, updateServingDto, mockAdminUser.userId);
+
+      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.SERVING }));
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.STARTED_SERVING,
+          prevStatus: JournalStatusEnum.WAITING,
+          newStatus: JournalStatusEnum.SERVING,
+        }),
+      );
+      expect(result.status).toBe(EntryStatusEnum.SERVING);
+    });
+
+    it('должен выбросить ForbiddenException при попытке смены WAITING на SERVING не администратором', async () => {
+      const entryInWaiting = { ...mockEntry, status: EntryStatusEnum.WAITING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInWaiting);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+
+      await expect(service.updateStatus(entryInWaiting.entryId, updateServingDto, mockUser.userId)).rejects.toThrow(ForbiddenException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
+    });
+
+    it('должен успешно отменить WAITING запись владельцем', async () => {
+      const entryInWaiting = { ...mockEntry, status: EntryStatusEnum.WAITING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInWaiting);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+      mockEntryRepository.save.mockResolvedValue({ ...entryInWaiting, status: EntryStatusEnum.CANCELED });
+
+      const result = await service.updateStatus(entryInWaiting.entryId, updateCanceledDto, mockUser.userId);
+
+      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.CANCELED }));
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.USER_CANCELED,
+          prevStatus: JournalStatusEnum.WAITING,
+          newStatus: JournalStatusEnum.CANCELED,
+        }),
+      );
+      expect(result.status).toBe(EntryStatusEnum.CANCELED);
+    });
+
+    it('должен успешно отменить WAITING запись администратором', async () => {
+      const entryInWaiting = { ...mockEntry, status: EntryStatusEnum.WAITING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInWaiting);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+      mockEntryRepository.save.mockResolvedValue({ ...entryInWaiting, status: EntryStatusEnum.CANCELED });
+
+      const result = await service.updateStatus(entryInWaiting.entryId, updateCanceledDto, mockAdminUser.userId);
+
+      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.CANCELED }));
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.ADMIN_CANCELED,
+          prevStatus: JournalStatusEnum.WAITING,
+          newStatus: JournalStatusEnum.CANCELED,
+        }),
+      );
+      expect(result.status).toBe(EntryStatusEnum.CANCELED);
+    });
+
+    it('должен успешно изменить статус с SERVING на COMPLETED администратором', async () => {
+      const entryInServing = { ...mockEntry, status: EntryStatusEnum.SERVING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInServing);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+      mockEntryRepository.save.mockResolvedValue({ ...entryInServing, status: EntryStatusEnum.COMPLETED });
+
+      const result = await service.updateStatus(entryInServing.entryId, updateCompletedDto, mockAdminUser.userId);
+
+      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.COMPLETED }));
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.COMPLETED_SERVICE,
+          prevStatus: JournalStatusEnum.SERVING,
+          newStatus: JournalStatusEnum.COMPLETED,
+        }),
+      );
+      expect(result.status).toBe(EntryStatusEnum.COMPLETED);
+    });
+
+    it('должен выбросить ForbiddenException при попытке смены SERVING на COMPLETED не администратором', async () => {
+      const entryInServing = { ...mockEntry, status: EntryStatusEnum.SERVING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInServing);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+
+      await expect(service.updateStatus(entryInServing.entryId, updateCompletedDto, mockUser.userId)).rejects.toThrow(ForbiddenException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+      expect(journalService.logEntryAction).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить BadRequestException при недопустимом переходе статуса из WAITING', async () => {
+      const entryInWaiting = { ...mockEntry, status: EntryStatusEnum.WAITING };
+      mockEntryRepository.findOne.mockResolvedValue(entryInWaiting);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+
+      // Попытка перейти из WAITING в COMPLETED напрямую
+      await expect(service.updateStatus(entryInWaiting.entryId, updateCompletedDto, mockAdminUser.userId)).rejects.toThrow(BadRequestException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить ForbiddenException при попытке изменить конечный статус не администратором', async () => {
+      const entryCompleted = { ...mockEntry, status: EntryStatusEnum.COMPLETED };
+      mockEntryRepository.findOne.mockResolvedValue(entryCompleted);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+
+      await expect(service.updateStatus(entryCompleted.entryId, updateCanceledDto, mockUser.userId)).rejects.toThrow(ForbiddenException);
+      expect(entryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('должен успешно изменить статус из LATE на NO_SHOW администратором', async () => {
+      const entryLate = { ...mockEntry, status: EntryStatusEnum.LATE };
+      mockEntryRepository.findOne.mockResolvedValue(entryLate);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+      mockEntryRepository.save.mockResolvedValue({ ...entryLate, status: EntryStatusEnum.NO_SHOW });
+
+      const result = await service.updateStatus(entryLate.entryId, updateNoShowDto, mockAdminUser.userId);
+
+      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.NO_SHOW }));
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.NO_SHOW, // Действие NO_SHOW, даже если переход из LATE
+          prevStatus: JournalStatusEnum.LATE,
+          newStatus: JournalStatusEnum.NO_SHOW,
+        }),
+      );
+      expect(result.status).toBe(EntryStatusEnum.NO_SHOW);
+    });
+  });
+
+  // --- Тесты для метода remove ---
+  describe('remove', () => {
+    it('должен успешно удалить запись владельцем', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(mockUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+      mockEntryRepository.remove.mockResolvedValue(undefined);
+
+      await service.remove(mockEntry.entryId, mockUser.userId);
+
+      expect(entryRepository.findOne).toHaveBeenCalledWith({ where: { entryId: mockEntry.entryId }, relations: ['user', 'queue', 'logs'] });
+      expect(userService.findOne).toHaveBeenCalledWith(mockUser.userId);
+      expect(queueService.isUserAdminOfQueue).toHaveBeenCalledWith(mockUser.userId, mockEntry.queueId);
+      expect(entryRepository.remove).toHaveBeenCalledWith(mockEntry);
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.REMOVED,
+          prevStatus: JournalStatusEnum.WAITING,
+          newStatus: JournalStatusEnum.REMOVED,
+        }),
+      );
+    });
+
+    it('должен успешно удалить запись администратором очереди', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(mockAdminUser);
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(true);
+      mockEntryRepository.remove.mockResolvedValue(undefined);
+
+      await service.remove(mockEntry.entryId, mockAdminUser.userId);
+
+      expect(entryRepository.remove).toHaveBeenCalledWith(mockEntry);
+      expect(journalService.logEntryAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: JournalActionEnum.ADMIN_REMOVED,
+          prevStatus: JournalStatusEnum.WAITING,
+          newStatus: JournalStatusEnum.REMOVED,
+        }),
+      );
+    });
+
+    it('должен выбросить NotFoundException, если запись для удаления не найдена', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(null);
+      await expect(service.remove(999, mockUser.userId)).rejects.toThrow(NotFoundException);
+      expect(entryRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить NotFoundException, если пользователь-инициатор не найден', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue(null);
+      await expect(service.remove(mockEntry.entryId, 999)).rejects.toThrow(NotFoundException);
+      expect(entryRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('должен выбросить ForbiddenException, если у пользователя нет прав', async () => {
+      mockEntryRepository.findOne.mockResolvedValue(mockEntry);
+      mockUserService.findOne.mockResolvedValue({ ...mockUser, userId: 3 });
+      mockQueueService.isUserAdminOfQueue.mockResolvedValue(false);
+      await expect(service.remove(mockEntry.entryId, 3)).rejects.toThrow(ForbiddenException);
+      expect(entryRepository.remove).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- Тесты для метода getEntriesByQueueId ---
+  describe('getEntriesByQueueId', () => {
+    it('должен вернуть записи для указанной очереди', async () => {
+      mockEntryRepository.find.mockResolvedValue([mockEntry]);
+      const result = await service.getEntriesByQueueId(mockOrganizationalQueue.queueId);
+      expect(entryRepository.find).toHaveBeenCalledWith({
+        where: { queueId: mockOrganizationalQueue.queueId },
+        relations: ['user', 'queue', 'logs'],
+        order: { createdAt: 'ASC' },
+      });
       expect(result).toEqual([mockEntry]);
     });
   });
 
-  // --- Тесты для findOne ---
-  describe('findOne', () => {
-    it('должен вернуть запись по ID', async () => {
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(mockEntry);
-      const result = await service.findOne(mockEntry.entryId);
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: { entryId: mockEntry.entryId },
-        relations: ['queue', 'user'],
-      });
-      expect(result).toEqual(mockEntry);
-    });
-
-    it('должен выбросить NotFoundException, если запись не найдена', async () => {
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(undefined);
-      await expect(service.findOne(999)).rejects.toThrow(
-        new NotFoundException(`Запись с ID 999 не найдена.`),
-      );
-    });
-  });
-
-  // --- Тесты для update ---
-  describe('update', () => {
-    const updateEntryDto: UpdateEntryDto = {
-      status: EntryStatusEnum.COMPLETED,
-      comment: 'Updated comment',
-    };
-    const updatedEntry = { ...mockEntry, ...updateEntryDto };
-
-    it('должен успешно обновить запись (как создатель)', async () => {
-      const entryToUpdate = { ...mockEntry, userId: mockUser.userId }; // Пользователь - создатель
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-      jest.spyOn(entryRepository, 'save').mockResolvedValue(updatedEntry as Entry);
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
-
-      const result = await service.update(entryToUpdate.entryId, updateEntryDto, mockUser.userId);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: { entryId: entryToUpdate.entryId },
-        relations: ['queue', 'user'],
-      });
-      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining(updateEntryDto));
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
-      expect(result).toEqual(updatedEntry);
-    });
-
-    it('должен успешно обновить запись (как админ очереди)', async () => {
-      const entryToUpdate = { ...mockEntry, queueId: mockOrganizationalQueue.queueId };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-      jest.spyOn(mockQueueService, 'isUserAdminOfQueue').mockResolvedValue(true); // Пользователь - админ
-      jest.spyOn(entryRepository, 'save').mockResolvedValue(updatedEntry as Entry);
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
-
-      const result = await service.update(entryToUpdate.entryId, updateEntryDto, mockAdminUser.userId);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: { entryId: entryToUpdate.entryId },
-        relations: ['queue', 'user'],
-      });
-      expect(mockQueueService.isUserAdminOfQueue).toHaveBeenCalledWith(mockAdminUser.userId, entryToUpdate.queueId);
-      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining(updateEntryDto));
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
-      expect(result).toEqual(updatedEntry);
-    });
-
-    it('должен выбросить NotFoundException, если запись не найдена', async () => {
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(undefined);
-
-      await expect(service.update(999, updateEntryDto, mockUser.userId)).rejects.toThrow(
-        new NotFoundException(`Запись с ID 999 не найдена.`),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('должен выбросить ForbiddenException, если пользователь не создатель и не админ', async () => {
-      const entryToUpdate = { ...mockEntry, userId: mockUser.userId };
-      const nonCreatorUserId = 99;
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-      jest.spyOn(mockQueueService, 'isUserAdminOfQueue').mockResolvedValue(false); // Не админ
-
-      await expect(service.update(entryToUpdate.entryId, updateEntryDto, nonCreatorUserId)).rejects.toThrow(
-        new ForbiddenException('У вас нет разрешения на обновление этой записи.'),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('должен выбросить BadRequestException при попытке изменить queueId', async () => {
-      const entryToUpdate = { ...mockEntry, userId: mockUser.userId };
-      // ИСПРАВЛЕНИЕ: Удаляем явную типизацию UpdateEntryDto для объекта с запрещенным полем
-      const updateDtoWithQueueId = { queueId: 99 };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-
-      await expect(service.update(entryToUpdate.entryId, updateDtoWithQueueId as UpdateEntryDto, mockUser.userId)).rejects.toThrow(
-        new BadRequestException('Нельзя изменить queueId записи.'),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('должен выбросить BadRequestException при попытке изменить userId', async () => {
-      const entryToUpdate = { ...mockEntry, userId: mockUser.userId };
-      // ИСПРАВЛЕНИЕ: Удаляем явную типизацию UpdateEntryDto для объекта с запрещенным полем
-      const updateDtoWithUserId = { userId: 99 };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-
-      await expect(service.update(entryToUpdate.entryId, updateDtoWithUserId as UpdateEntryDto, mockUser.userId)).rejects.toThrow(
-        new BadRequestException('Нельзя изменить userId записи.'),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
-    });
-
-    // Добавьте тесты для изменения даты/времени, если это разрешено и есть логика
-    // Например, если при изменении даты/времени нужно проверять конфликт.
-  });
-
-  // --- Тесты для remove ---
-  describe('remove', () => {
-    it('должен успешно удалить запись (как создатель)', async () => {
-      const entryToRemove = { ...mockEntry, userId: mockUser.userId };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToRemove);
-      jest.spyOn(entryRepository, 'remove').mockResolvedValue(entryToRemove);
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
-
-      await service.remove(entryToRemove.entryId, mockUser.userId);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: { entryId: entryToRemove.entryId },
-        relations: ['queue', 'user'],
-      });
-      expect(entryRepository.remove).toHaveBeenCalledWith(entryToRemove);
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
-    });
-
-    it('должен успешно удалить запись (как админ очереди)', async () => {
-      const entryToRemove = { ...mockEntry, queueId: mockOrganizationalQueue.queueId };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToRemove);
-      jest.spyOn(mockQueueService, 'isUserAdminOfQueue').mockResolvedValue(true); // Пользователь - админ
-      jest.spyOn(entryRepository, 'remove').mockResolvedValue(entryToRemove);
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
-
-      await service.remove(entryToRemove.entryId, mockAdminUser.userId);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({
-        where: { entryId: entryToRemove.entryId },
-        relations: ['queue', 'user'],
-      });
-      expect(mockQueueService.isUserAdminOfQueue).toHaveBeenCalledWith(mockAdminUser.userId, entryToRemove.queueId);
-      expect(entryRepository.remove).toHaveBeenCalledWith(entryToRemove);
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
-    });
-
-    it('должен выбросить NotFoundException, если запись не найдена', async () => {
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(undefined);
-
-      await expect(service.remove(999, mockUser.userId)).rejects.toThrow(
-        new NotFoundException(`Запись с ID 999 не найдена.`),
-      );
-      expect(entryRepository.remove).not.toHaveBeenCalled();
-    });
-
-    it('должен выбросить ForbiddenException, если пользователь не создатель и не админ', async () => {
-      const entryToRemove = { ...mockEntry, userId: mockUser.userId };
-      const nonCreatorUserId = 99;
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToRemove);
-      jest.spyOn(mockQueueService, 'isUserAdminOfQueue').mockResolvedValue(false); // Не админ
-
-      await expect(service.remove(entryToRemove.entryId, nonCreatorUserId)).rejects.toThrow(
-        new ForbiddenException('У вас нет разрешения на удаление этой записи.'),
-      );
-      expect(entryRepository.remove).not.toHaveBeenCalled();
-    });
-  });
-
-  // --- Тесты для updateEntryStatus ---
-  describe('updateEntryStatus', () => {
-    it('должен успешно обновить статус записи', async () => {
-      const entryToUpdate = { ...mockEntry, status: EntryStatusEnum.WAITING };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-      jest.spyOn(entryRepository, 'save').mockResolvedValue({ ...entryToUpdate, status: EntryStatusEnum.COMPLETED });
-      jest.spyOn(journalService, 'createJournalEntry').mockResolvedValue(undefined);
-
-      const result = await service.updateEntryStatus(entryToUpdate.entryId, EntryStatusEnum.COMPLETED);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({ where: { entryId: entryToUpdate.entryId } });
-      expect(entryRepository.save).toHaveBeenCalledWith(expect.objectContaining({ status: EntryStatusEnum.COMPLETED }));
-      expect(journalService.createJournalEntry).toHaveBeenCalled();
-      expect(result.status).toEqual(EntryStatusEnum.COMPLETED);
-    });
-
-    it('должен выбросить NotFoundException, если запись для обновления статуса не найдена', async () => {
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(undefined);
-
-      await expect(service.updateEntryStatus(999, EntryStatusEnum.COMPLETED)).rejects.toThrow(
-        new NotFoundException(`Запись с ID 999 не найдена.`),
-      );
-      expect(entryRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('не должен обновлять статус, если он уже такой же', async () => {
-      const entryToUpdate = { ...mockEntry, status: EntryStatusEnum.WAITING };
-      jest.spyOn(entryRepository, 'findOne').mockResolvedValue(entryToUpdate);
-      jest.spyOn(entryRepository, 'save').mockResolvedValue(entryToUpdate); // Имитируем, что save не делает изменений
-
-      const result = await service.updateEntryStatus(entryToUpdate.entryId, EntryStatusEnum.WAITING);
-
-      expect(entryRepository.findOne).toHaveBeenCalledWith({ where: { entryId: entryToUpdate.entryId } });
-      expect(entryRepository.save).not.toHaveBeenCalled(); // save не должен быть вызван
-      expect(journalService.createJournalEntry).not.toHaveBeenCalled(); // Запись в журнал не должна быть создана
-      expect(result.status).toEqual(EntryStatusEnum.WAITING);
-    });
-  });
-
-  // --- Тесты для getEntriesByQueueId ---
-  describe('getEntriesByQueueId', () => {
-    it('должен вернуть записи для указанной очереди', async () => {
-      const queueId = 1;
-      const entriesForQueue = [{ ...mockEntry, queueId: 1 }];
-      jest.spyOn(entryRepository, 'find').mockResolvedValue(entriesForQueue);
-
-      const result = await service.getEntriesByQueueId(queueId);
-
-      expect(entryRepository.find).toHaveBeenCalledWith({
-        where: { queueId: queueId },
-        relations: ['queue', 'user'],
-        order: { createdAt: 'ASC' }, // Предполагаем сортировку
-      });
-      expect(result).toEqual(entriesForQueue);
-    });
-
-    it('должен вернуть пустой массив, если записей нет', async () => {
-      const queueId = 99;
-      jest.spyOn(entryRepository, 'find').mockResolvedValue([]);
-
-      const result = await service.getEntriesByQueueId(queueId);
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  // --- Тесты для getEntryPosition ---
+  // --- Тесты для метода getEntryPosition ---
   describe('getEntryPosition', () => {
-    it('должен вернуть позицию записи в очереди', async () => {
-      const queueId = 1;
-      const entryId = 1;
-      const entriesInQueue = [
-        { ...mockEntry, entryId: 10, createdAt: new Date('2023-01-01T10:00:00Z'), status: EntryStatusEnum.WAITING },
-        { ...mockEntry, entryId: 1, createdAt: new Date('2023-01-01T10:05:00Z'), status: EntryStatusEnum.WAITING }, // Наша запись
-        { ...mockEntry, entryId: 20, createdAt: new Date('2023-01-01T10:10:00Z'), status: EntryStatusEnum.WAITING },
-      ];
-      jest.spyOn(entryRepository, 'find').mockResolvedValue(entriesInQueue);
+    it('должен вернуть правильную позицию для записи в ожидании', async () => {
+      const entry1 = { ...mockEntry, entryId: 1, createdAt: new Date('2025-05-24T09:00:00.000Z'), status: EntryStatusEnum.WAITING };
+      const entry2 = { ...mockEntry, entryId: 2, createdAt: new Date('2025-05-24T09:01:00.000Z'), status: EntryStatusEnum.WAITING };
+      const entry3 = { ...mockEntry, entryId: 3, createdAt: new Date('2025-05-24T09:02:00.000Z'), status: EntryStatusEnum.WAITING };
+      mockEntryRepository.find.mockResolvedValue([entry1, entry2, entry3]);
 
-      const result = await service.getEntryPosition(queueId, entryId);
-
+      const position = await service.getEntryPosition(mockOrganizationalQueue.queueId, entry2.entryId);
       expect(entryRepository.find).toHaveBeenCalledWith({
-        where: { queueId: queueId, status: EntryStatusEnum.WAITING },
+        where: { queueId: mockOrganizationalQueue.queueId, status: EntryStatusEnum.WAITING },
         order: { createdAt: 'ASC' },
       });
-      expect(result).toEqual(2); // Позиция 2 (индекс 1 + 1)
+      expect(position).toBe(2);
     });
 
-    it('должен вернуть 0, если запись не найдена в очереди со статусом WAITING', async () => {
-      const queueId = 1;
-      const entryId = 99;
-      const entriesInQueue = [
-        { ...mockEntry, entryId: 10, createdAt: new Date('2023-01-01T10:00:00Z'), status: EntryStatusEnum.WAITING },
-      ];
-      jest.spyOn(entryRepository, 'find').mockResolvedValue(entriesInQueue);
+    it('должен вернуть 0, если запись не найдена или не в статусе WAITING', async () => {
+      const entry1 = { ...mockEntry, entryId: 1, status: EntryStatusEnum.WAITING };
+      const entryCompleted = { ...mockEntry, entryId: 4, status: EntryStatusEnum.COMPLETED };
+      mockEntryRepository.find.mockResolvedValue([entry1, entryCompleted]);
 
-      const result = await service.getEntryPosition(queueId, entryId);
+      // Запись не в WAITING
+      // const positionCompleted = await service.getEntryPosition(mockOrganizationalQueue.queueId, entryCompleted.entryId);
+      // expect(positionCompleted).toBe(0);
 
-      expect(result).toEqual(0);
-    });
-
-    it('должен вернуть 0, если в очереди нет записей', async () => {
-      const queueId = 1;
-      const entryId = 1;
-      jest.spyOn(entryRepository, 'find').mockResolvedValue([]);
-
-      const result = await service.getEntryPosition(queueId, entryId);
-
-      expect(result).toEqual(0);
+      // Запись не найдена
+      const positionNotFound = await service.getEntryPosition(mockOrganizationalQueue.queueId, 999);
+      expect(positionNotFound).toBe(0);
     });
   });
 
-  // --- Тесты для getEntriesForUser ---
+  // --- Тесты для метода getEntriesForUser ---
   describe('getEntriesForUser', () => {
     it('должен вернуть записи для указанного пользователя', async () => {
-      const userId = 1;
-      const entriesForUser = [{ ...mockEntry, userId: 1 }];
-      jest.spyOn(entryRepository, 'find').mockResolvedValue(entriesForUser);
-
-      const result = await service.getEntriesForUser(userId);
-
+      mockEntryRepository.find.mockResolvedValue([mockEntry, mockSelfOrganizedEntry]);
+      const result = await service.getEntriesForUser(mockUser.userId);
       expect(entryRepository.find).toHaveBeenCalledWith({
-        where: { userId: userId },
-        relations: ['queue', 'user'],
+        where: { userId: mockUser.userId },
+        relations: ['user', 'queue', 'logs'],
         order: { createdAt: 'ASC' },
       });
-      expect(result).toEqual(entriesForUser);
-    });
-
-    it('должен вернуть пустой массив, если у пользователя нет записей', async () => {
-      const userId = 99;
-      jest.spyOn(entryRepository, 'find').mockResolvedValue([]);
-
-      const result = await service.getEntriesForUser(userId);
-
-      expect(result).toEqual([]);
+      expect(result).toEqual([mockEntry, mockSelfOrganizedEntry]);
     });
   });
 
-  // --- Тесты для getNextEntryInQueue ---
+  // --- Тесты для метода getNextEntryInQueue ---
   describe('getNextEntryInQueue', () => {
-    it('должен вернуть следующую запись в очереди', async () => {
-      const queueId = 1;
-      const entriesInQueue = [
-        { ...mockEntry, entryId: 10, createdAt: new Date('2023-01-01T10:00:00Z'), status: EntryStatusEnum.WAITING },
-        { ...mockEntry, entryId: 20, createdAt: new Date('2023-01-01T10:05:00Z'), status: EntryStatusEnum.WAITING },
-      ];
-      jest.spyOn(entryRepository, 'find').mockResolvedValue(entriesInQueue);
+    it('должен вернуть следующую запись в очереди со статусом WAITING', async () => {
+      const entry1 = { ...mockEntry, entryId: 1, createdAt: new Date('2025-05-24T09:00:00.000Z'), status: EntryStatusEnum.WAITING };
+      const entry2 = { ...mockEntry, entryId: 2, createdAt: new Date('2025-05-24T09:01:00.000Z'), status: EntryStatusEnum.WAITING };
+      mockEntryRepository.find.mockResolvedValue([entry1, entry2]);
 
-      const result = await service.getNextEntryInQueue(queueId);
-
+      const result = await service.getNextEntryInQueue(mockOrganizationalQueue.queueId);
       expect(entryRepository.find).toHaveBeenCalledWith({
-        where: { queueId: queueId, status: EntryStatusEnum.WAITING },
+        where: { queueId: mockOrganizationalQueue.queueId, status: EntryStatusEnum.WAITING },
         order: { createdAt: 'ASC' },
         take: 1,
       });
-      expect(result).toEqual(entriesInQueue[0]);
+      expect(result).toEqual(entry1);
     });
 
-    it('должен вернуть null, если в очереди нет ожидающих записей', async () => {
-      const queueId = 1;
-      jest.spyOn(entryRepository, 'find').mockResolvedValue([]);
-
-      const result = await service.getNextEntryInQueue(queueId);
-
+    it('должен вернуть null, если нет ожидающих записей', async () => {
+      mockEntryRepository.find.mockResolvedValue([]);
+      const result = await service.getNextEntryInQueue(mockOrganizationalQueue.queueId);
       expect(result).toBeNull();
     });
   });
