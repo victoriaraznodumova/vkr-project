@@ -85,7 +85,6 @@ export class QueueService {
       createdByUserId,
       createdAt: new Date(),
       privateLinkToken: createQueueDto.privateLinkToken || (createQueueDto.visibility === QueueVisibilityEnum.PRIVATE ? uuidv4() : null),
-      isActive: true, // Новые очереди активны по умолчанию
       openingHours: createQueueDto.openingHours, // Добавлено
       intervalMinutes: createQueueDto.intervalMinutes, // Добавлено
       concurrentVisitors: createQueueDto.concurrentVisitors, // Добавлено

@@ -65,7 +65,6 @@ const mockOrganizationalQueue: Queue = {
   intervalMinutes: 30,
   concurrentVisitors: 1,
   visibility: QueueVisibilityEnum.PUBLIC,
-  isActive: true,
   createdAt: new Date(),
   createdByUserId: mockAdminUser.userId,
   createdBy: mockAdminUser,
@@ -89,7 +88,6 @@ const mockSelfOrganizedQueue: Queue = {
   concurrentVisitors: null,
   // Самоорганизованные очереди часто приватные, но для теста оставим PUBLIC, если это не влияет на логику
   visibility: QueueVisibilityEnum.PUBLIC,
-  isActive: true,
   createdAt: new Date(),
   createdByUserId: mockUser.userId, // Создана обычным пользователем
   createdBy: mockUser,
@@ -111,7 +109,6 @@ const mockInactiveQueue: Queue = {
   intervalMinutes: 30,
   concurrentVisitors: 1,
   visibility: QueueVisibilityEnum.PUBLIC, // Устанавливаем конкретное значение
-  isActive: false, // Неактивна
   createdAt: new Date(),
   createdByUserId: mockUser.userId,
   createdBy: mockUser,

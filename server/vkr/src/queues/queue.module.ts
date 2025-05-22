@@ -7,6 +7,8 @@ import { QueueController } from './queue.controller';
 import { Queue } from './entity/queue.entity';
 import { OrganizationsModule } from '../organizations/organization.module'; // Импортируем OrganizationsModule
 import { AuthModule } from '../auth/auth.module'; // Для использования JwtAuthGuard и RolesGuard
+import { Administrator } from 'src/administrators/administrator.entity';
+import { User } from 'src/users/entity/user.entity';
 
 /**
  * Модуль для управления очередями.
@@ -14,9 +16,9 @@ import { AuthModule } from '../auth/auth.module'; // Для использова
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Queue]), // Регистрируем сущность Queue для TypeORM
+    TypeOrmModule.forFeature([Queue, Administrator, User]), // Регистрируем сущность Queue для TypeORM
     OrganizationsModule, // Импортируем OrganizationsModule, так как QueuesService зависит от OrganizationsService
-    AuthModule, // Импортируем AuthModule для использования guards
+    AuthModule, // Импортируем AuthModule для использования guards,
   ],
   providers: [QueueService], // Регистрируем QueuesService как провайдер
   controllers: [QueueController], // Регистрируем QueuesController как контроллер

@@ -45,10 +45,10 @@ export class EntryService {
       throw new NotFoundException(`Очередь с ID ${queueId} не найдена.`);
     }
 
-    // Проверка активности очереди
-    if (!queue.isActive) {
-      throw new BadRequestException('Очередь неактивна и не принимает новые записи.');
-    }
+    // // Проверка активности очереди
+    // if (!queue.isActive) {
+    //   throw new BadRequestException('Очередь неактивна и не принимает новые записи.');
+    // }
 
     let entryTimeOrg: Date | null = null;
 

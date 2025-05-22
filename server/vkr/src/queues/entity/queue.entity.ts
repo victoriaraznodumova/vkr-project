@@ -69,9 +69,9 @@ export class Queue {
   @Column({ name: 'created_by_user_id', type: 'bigint' })
   createdByUserId: number;
 
-  // НОВОЕ ПОЛЕ: isActive
-  @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
+  // // НОВОЕ ПОЛЕ: isActive
+  // @Column({ name: 'is_active', type: 'boolean', default: true })
+  // isActive: boolean;
 
   @OneToMany(() => Administrator, (administrator) => administrator.queue)
   administrators: Administrator[];

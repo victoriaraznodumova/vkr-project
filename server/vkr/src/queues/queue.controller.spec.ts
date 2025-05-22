@@ -24,7 +24,6 @@ const mockQueueEntity: Queue = {
   serviceName: 'Service A',
   createdByUserId: 1,
   privateLinkToken: null,
-  isActive: true,
   createdAt: new Date(),
   openingHours: '9:00-18:00',
   intervalMinutes: 15,
