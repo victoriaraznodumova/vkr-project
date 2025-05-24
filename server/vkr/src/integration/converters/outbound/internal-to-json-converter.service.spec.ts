@@ -1,22 +1,20 @@
-// src/adapters/outbound/internal-to-json.adapter.spec.ts
+import { InternalToJsonConverterService } from './internal-to-json-converter.service';
+import { InternalFormat } from '../../../common/internal-format.interface'; 
 
-import { InternalToJsonAdapter } from './internal-to-json.adapter';
-import { InternalMessage } from '../../common/internal-message.interface'; // Убедитесь, что путь правильный
-
-describe('InternalToJsonAdapter', () => {
-  let adapter: InternalToJsonAdapter;
+describe('InternalToJsonConverter', () => {
+  let converter: InternalToJsonConverterService;
 
   beforeEach(() => {
-    adapter = new InternalToJsonAdapter();
+    converter = new InternalToJsonConverterService();
   });
 
   it('должен быть определен', () => {
-    expect(adapter).toBeDefined();
+    expect(converter).toBeDefined();
   });
 
-  describe('adapt', () => {
+  describe('convert', () => {
     it('должен преобразовать InternalMessage в JSON-строку', () => {
-      const internalMessage: InternalMessage = {
+      const internalFormat: InternalFormat = {
         queueId: 1,
         userId: 10,
         status: 'completed',
@@ -30,24 +28,24 @@ describe('InternalToJsonAdapter', () => {
       // Ожидаемая строка JSON должна быть без форматирования (одна строка)
       const expectedJson = '{"queueId":1,"userId":10,"status":"completed","date":"2023-01-01","time":"12:00","notificationMinutes":30,"notificationPosition":1,"comment":"Entry processed."}';
 
-      const result = adapter.adapt(internalMessage);
+      const result = converter.convert(internalFormat);
       expect(result).toEqual(expectedJson);
     });
 
     it('должен преобразовать InternalMessage с минимальными полями', () => {
-      const internalMessage: InternalMessage = {
+      const internalMessage: InternalFormat = {
         queueId: 5,
         userId: 50,
       };
 
       const expectedJson = '{"queueId":5,"userId":50}';
 
-      const result = adapter.adapt(internalMessage);
+      const result = converter.convert(internalMessage);
       expect(result).toEqual(expectedJson);
     });
 
     it('должен корректно обрабатывать пустые строки и null значения', () => {
-      const internalMessage: InternalMessage = {
+      const internalMessage: InternalFormat = {
         queueId: 1,
         userId: 10,
         status: '', // Пустая строка
@@ -58,12 +56,12 @@ describe('InternalToJsonAdapter', () => {
       // Undefined поля не сериализуются в JSON
       const expectedJson = '{"queueId":1,"userId":10,"status":"","comment":null}';
 
-      const result = adapter.adapt(internalMessage);
+      const result = converter.convert(internalMessage);
       expect(result).toEqual(expectedJson);
     });
 
     it('должен корректно обрабатывать все необязательные поля как undefined', () => {
-      const internalMessage: InternalMessage = {
+      const internalMessage: InternalFormat = {
         queueId: 1,
         userId: 10,
         status: undefined,
@@ -76,7 +74,7 @@ describe('InternalToJsonAdapter', () => {
 
       const expectedJson = '{"queueId":1,"userId":10}'; // Только обязательные поля
 
-      const result = adapter.adapt(internalMessage);
+      const result = converter.convert(internalMessage);
       expect(result).toEqual(expectedJson);
     });
   });

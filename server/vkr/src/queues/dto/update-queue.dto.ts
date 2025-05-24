@@ -7,8 +7,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { QueueTypeEnum } from '../entity/queue.type.enum'; // Импортируем ENUM типа очереди
-import { QueueVisibilityEnum } from '../entity/queue.visibility.enum'; // Импортируем ENUM видимости очереди
+import { QueueTypeEnum } from '../entity/queue-type.enum'; // Импортируем ENUM типа очереди
+import { QueueVisibilityEnum } from '../entity/queue-visibility.enum'; // Импортируем ENUM видимости очереди
 
 /**
  * DTO для обновления существующей очереди.

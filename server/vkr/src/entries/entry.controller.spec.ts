@@ -19,7 +19,7 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { Entry } from './entity/entry.entity'; // Предполагаем, что у вас есть сущность Entry
-import { EntryStatusEnum } from './entity/entry.status.enum';
+import { EntryStatusEnum } from './entity/entry-status.enum';
 
 describe('EntryController', () => {
   let controller: EntryController;

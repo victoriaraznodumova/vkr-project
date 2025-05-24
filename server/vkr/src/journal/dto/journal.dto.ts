@@ -3,8 +3,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { IsNumber, IsString, IsEnum, IsDate, IsOptional } from 'class-validator';
-import { JournalStatusEnum } from '../entity/journal.status.enum'; // Импортируем ENUM статусов
-import { JournalActionEnum } from '../entity/journal.action.enum'; // Импортируем ENUM действий
+import { JournalStatusEnum } from '../entity/journal-status.enum'; // Импортируем ENUM статусов
+import { JournalActionEnum } from '../entity/journal-action.enum'; // Импортируем ENUM действий
 import { UserDto } from '../../users/dto/user.dto'; // Предполагается, что у вас есть UserDto
 // import { EntryDto } from '../../entries/dto/entry.dto'; // Если нужно включать данные записи
 

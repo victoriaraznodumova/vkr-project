@@ -7,8 +7,8 @@ import { CreateQueueDto } from './dto/create-queue.dto';
 import { UpdateQueueDto } from './dto/update-queue.dto';
 import { QueueDto } from './dto/queue.dto';
 import { Queue } from './entity/queue.entity';
-import { QueueTypeEnum } from './entity/queue.type.enum';
-import { QueueVisibilityEnum } from './entity/queue.visibility.enum';
+import { QueueTypeEnum } from './entity/queue-type.enum';
+import { QueueVisibilityEnum } from './entity/queue-visibility.enum';
 import { NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // Импортируем для мокирования
 

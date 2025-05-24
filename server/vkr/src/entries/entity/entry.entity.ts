@@ -12,7 +12,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { EntryStatusEnum } from './entry.status.enum';
+import { EntryStatusEnum } from './entry-status.enum';
 
 @Entity('entries')
 export class Entry {

@@ -8,7 +8,7 @@ import {
   ValidateIf
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { QueueTypeEnum } from 'src/queues/entity/queue.type.enum';
+import { QueueTypeEnum } from 'src/queues/entity/queue-type.enum';
 
 /**DTO для создания новой записи в очереди.
  * Содержит данные, которые клиент предоставляет при записи.

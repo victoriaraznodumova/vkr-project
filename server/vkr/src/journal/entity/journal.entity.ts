@@ -7,8 +7,8 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { JournalStatusEnum } from './journal.status.enum';
-import { JournalActionEnum } from './journal.action.enum';
+import { JournalStatusEnum } from './journal-status.enum';
+import { JournalActionEnum } from './journal-action.enum';
 import { User } from '../../users/entity/user.entity';
 
 @Entity('journal')

@@ -4,8 +4,8 @@ import { Repository, FindManyOptions } from 'typeorm';
 import { Journal } from './entity/journal.entity'; // Изменено с JournalEntry на Journal
 import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { QueryJournalEntriesDto } from './dto/query-journal-entries.dto';
-import { JournalStatusEnum } from './entity/journal.status.enum'; // Импортируем новый enum
-import { JournalActionEnum } from './entity/journal.action.enum'; // Импортируем новый enum
+import { JournalStatusEnum } from './entity/journal-status.enum'; // Импортируем новый enum
+import { JournalActionEnum } from './entity/journal-action.enum'; // Импортируем новый enum
 
 /**
  * Сервис для управления записями в журнале действий.

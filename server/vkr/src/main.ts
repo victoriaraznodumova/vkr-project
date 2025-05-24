@@ -53,6 +53,7 @@ async function bootstrap() {
   app.use(bodyParser.text({ type: 'application/xml' }));
   app.use(bodyParser.text({ type: 'text/xml' }));
   app.use(bodyParser.json()); // Для JSON
+  app.use(bodyParser.text({ type: 'application/yaml'})); // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
   app.use(bodyParser.urlencoded({ extended: true })); // Для form-urlencoded
 
 

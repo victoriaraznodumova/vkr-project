@@ -1,20 +1,18 @@
-// src/adapters/inbound/xml-to-internal.adapter.spec.ts
+import { XmlToInternalConverterService } from './xml-to-internal-converter.service';
+import { InternalFormat } from '../../../common/internal-format.interface'; // Убедитесь, что путь правильный
 
-import { XmlToInternalAdapter } from './xml-to-internal.adapter';
-import { InternalMessage } from '../../common/internal-message.interface'; // Убедитесь, что путь правильный
-
-describe('XmlToInternalAdapter', () => {
-  let adapter: XmlToInternalAdapter;
+describe('XmlToInternalConverter', () => {
+  let converter: XmlToInternalConverterService;
 
   beforeEach(() => {
-    adapter = new XmlToInternalAdapter();
+    converter = new XmlToInternalConverterService();
   });
 
   it('должен быть определен', () => {
-    expect(adapter).toBeDefined();
+    expect(converter).toBeDefined();
   });
 
-  describe('adapt', () => {
+  describe('convert', () => {
     it('должен успешно преобразовать валидный XML в InternalMessage', async () => {
       const xmlString = `
         <externalRequest>
@@ -29,7 +27,7 @@ describe('XmlToInternalAdapter', () => {
         </externalRequest>
       `;
 
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 1,
         userId: 10,
         status: 'waiting',
@@ -40,7 +38,7 @@ describe('XmlToInternalAdapter', () => {
         comment: 'Test comment',
       };
 
-      const result = await adapter.adapt(xmlString);
+      const result = await converter.convert(xmlString);
       expect(result).toEqual(expected);
     });
 
@@ -52,7 +50,7 @@ describe('XmlToInternalAdapter', () => {
         </request>
       `;
 
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 5,
         userId: 50,
         status: undefined,
@@ -63,13 +61,13 @@ describe('XmlToInternalAdapter', () => {
         comment: undefined,
       };
 
-      const result = await adapter.adapt(xmlString);
+      const result = await converter.convert(xmlString);
       expect(result).toEqual(expected);
     });
 
     it('должен выбросить ошибку для невалидного XML', async () => {
       const invalidXml = '<externalRequest><queueId>1</queueId>'; // Незакрытый тег
-      await expect(adapter.adapt(invalidXml)).rejects.toThrow(/Неверный формат XML: (Unclosed root tag|Non-whitespace content after end-tag)/);
+      await expect(converter.convert(invalidXml)).rejects.toThrow(/Неверный формат XML: (Unclosed root tag|Non-whitespace content after end-tag)/);
     });
 
     it('должен выбросить ошибку, если userId отсутствует', async () => {
@@ -78,7 +76,7 @@ describe('XmlToInternalAdapter', () => {
           <queueId>1</queueId>
         </externalRequest>
       `;
-      await expect(adapter.adapt(xmlWithoutUserId)).rejects.toThrow('Отсутствует обязательное поле: userId');
+      await expect(converter.convert(xmlWithoutUserId)).rejects.toThrow('Отсутствует обязательное поле: userId');
     });
 
     it('должен выбросить ошибку, если queueId отсутствует', async () => {
@@ -87,19 +85,19 @@ describe('XmlToInternalAdapter', () => {
           <userId>10</userId>
         </externalRequest>
       `;
-      await expect(adapter.adapt(xmlWithoutQueueId)).rejects.toThrow('Отсутствует обязательное поле: queueId');
+      await expect(converter.convert(xmlWithoutQueueId)).rejects.toThrow('Отсутствует обязательное поле: queueId');
     });
 
     it('должен обрабатывать пустую строку как невалидный XML', async () => {
-      await expect(adapter.adapt('')).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
+      await expect(converter.convert('')).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
     });
 
     it('должен обрабатывать null как невалидный XML', async () => {
-      await expect(adapter.adapt(null as any)).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
+      await expect(converter.convert(null as any)).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
     });
 
     it('должен обрабатывать undefined как невалидный XML', async () => {
-      await expect(adapter.adapt(undefined as any)).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
+      await expect(converter.convert(undefined as any)).rejects.toThrow('Входящие XML данные отсутствуют, пусты или имеют некорректный тип (ожидается непустая строка).');
     });
 
     it('должен обрабатывать числовые поля как числа', async () => {
@@ -111,7 +109,7 @@ describe('XmlToInternalAdapter', () => {
           <notificationPosition>5</notificationPosition>
         </data>
       `;
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 123,
         userId: 456,
         notificationMinutes: 30,
@@ -121,7 +119,7 @@ describe('XmlToInternalAdapter', () => {
         time: undefined,
         comment: undefined,
       };
-      const result = await adapter.adapt(xmlString);
+      const result = await converter.convert(xmlString);
       expect(result).toEqual(expected);
     });
 
@@ -132,7 +130,7 @@ describe('XmlToInternalAdapter', () => {
           <userId>200</userId>
         </someOtherRoot>
       `;
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 100,
         userId: 200,
         status: undefined,
@@ -142,7 +140,7 @@ describe('XmlToInternalAdapter', () => {
         notificationPosition: undefined,
         comment: undefined,
       };
-      const result = await adapter.adapt(xmlString);
+      const result = await converter.convert(xmlString);
       expect(result).toEqual(expected);
     });
   });

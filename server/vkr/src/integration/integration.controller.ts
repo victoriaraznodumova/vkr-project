@@ -1,27 +1,27 @@
-// src/integration/integration.controller.ts
 import { Controller, Post, Headers, Res, Req, HttpCode, HttpStatus } from '@nestjs/common';
-import { MessageProcessingFacade } from './integration.facade';
+import { FormatProcessingService } from './integration.service';
 import { Response, Request } from 'express';
-import { ApiTags, ApiConsumes, ApiProduces, ApiResponse, ApiBody, getSchemaPath } from '@nestjs/swagger'; // Добавляем ApiProduces
-
-import { InternalToXmlAdapter } from '../adapters/outbound/internal-to-xml.adapter';
-import { InternalToJsonAdapter } from '../adapters/outbound/internal-to-json.adapter';
-
-import { CreateEntryDto } from '../entries/dto/create-entry.dto'; // Предполагаемый DTO
+// Добавляем InternalToYamlConverterService для проверки типа исходящего адаптера
+import { ApiTags, ApiConsumes, ApiProduces, ApiResponse, ApiBody, getSchemaPath } from '@nestjs/swagger'; 
+import { InternalToXmlConverterService } from './converters/outbound/internal-to-xml-converter.servicer';
+import { InternalToJsonConverterService } from './converters/outbound/internal-to-json-converter.service';
+import { InternalToYamlConverterService } from './converters/outbound/internal-to-yaml-converter.service'; // <--- НОВЫЙ ИМПОРТ
+import { CreateEntryDto } from '../entries/dto/create-entry.dto';
 
 @ApiTags('integrate')
 @Controller('integrate')
 export class IntegrationController {
-  constructor(private readonly messageProcessingFacade: MessageProcessingFacade) {}
+  constructor(private readonly messageProcessingFacade: FormatProcessingService) {}
 
   @Post('process')
   @HttpCode(HttpStatus.OK)
-  @ApiConsumes('application/json', 'application/xml', 'text/xml') // Заявленные форматы для входящих данных
-  @ApiProduces('application/json', 'application/xml') // <--- НОВОЕ: Заявленные форматы для исходящих данных
+  // Заявленные форматы для входящих данных: добавляем application/yaml
+  @ApiConsumes('application/json', 'application/xml', 'text/xml', 'application/yaml') 
+  // Заявленные форматы для исходящих данных: добавляем application/yaml
+  @ApiProduces('application/json', 'application/xml', 'application/yaml') 
   @ApiResponse({
     status: 200,
     description: 'Сообщение успешно обработано.',
-    // Важно: явно указываем content для каждого типа ответа
     content: {
       'application/json': {
         schema: {
@@ -29,7 +29,7 @@ export class IntegrationController {
           properties: {
             message: { type: 'string', example: 'Запись успешно создана' },
             entryId: { type: 'number', example: 7 },
-            queueId: { type: 'number', example: 1 }, // Добавляем поля, которые могут быть в ответе
+            queueId: { type: 'number', example: 1 },
             userId: { type: 'number', example: 2 },
             status: { type: 'string', example: 'waiting' },
           },
@@ -42,16 +42,26 @@ export class IntegrationController {
           example: '<response><message>Запись успешно создана</message><entryId>7</entryId><queueId>1</queueId><userId>2</userId><status>waiting</status></response>',
         },
       },
+      // Добавляем пример для YAML успешного ответа
+      'application/yaml': { // <--- НОВОЕ: Схема для YAML ответа
+        schema: {
+          type: 'string',
+          format: 'yaml',
+          example: 'message: Запись успешно создана\nentryId: 7\nqueueId: 1\nuserId: 2\nstatus: waiting',
+        },
+      },
     },
   })
-  @ApiResponse({ status: 400, description: 'Некорректный запрос или неподдерживаемый формат.',
-    content: { // Также явно указываем контент для ошибок
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Некорректный запрос или неподдерживаемый формат.',
+    content: {
       'application/json': {
         schema: {
           type: 'object',
           properties: {
             statusCode: { type: 'number', example: 400 },
-            message: { type: 'string', example: 'Неверный формат XML: ...' },
+            message: { type: 'string', example: 'Неверный формат JSON: ...' },
             error: { type: 'string', example: 'Bad Request' },
           },
         },
@@ -63,10 +73,18 @@ export class IntegrationController {
           example: '<error><statusCode>400</statusCode><message>Неверный формат XML: ...</message><error>Bad Request</error></error>',
         },
       },
+      // Добавляем пример для YAML ошибки
+      'application/yaml': { // <--- НОВОЕ: Схема для YAML ошибки
+        schema: {
+          type: 'string',
+          format: 'yaml',
+          example: 'statusCode: 400\nmessage: Неверный формат YAML: ...\nerror: Bad Request',
+        },
+      },
     },
   })
   @ApiBody({
-    description: 'Тело запроса для обработки внешних данных. Может быть в JSON или XML.',
+    description: 'Тело запроса для обработки внешних данных. Может быть в JSON, XML или YAML.',
     schema: {
       oneOf: [
         {
@@ -84,6 +102,13 @@ export class IntegrationController {
           format: 'xml',
           example: '<externalRequest><queueId>789</queueId><userId>101</userId><externalField>Значение из XML</externalField></externalRequest>',
         },
+        // Добавляем пример для YAML тела запроса
+        { // <--- НОВОЕ: Схема для YAML запроса
+          title: 'YAML Request Body',
+          type: 'string',
+          format: 'yaml',
+          example: 'queueId: 123\nuserId: 456\nsomeExternalData: Пример YAML данных',
+        },
       ],
     },
   })
@@ -94,35 +119,34 @@ export class IntegrationController {
     @Req() req: Request,
   ): Promise<string | object> {
     let actualRawData: string = '';
+    const normalizedContentType = contentType ? contentType.toLowerCase() : ''; // Нормализуем для удобства
 
-    console.log(`[IntegrationController]: Debugging request body...`);
-    console.log(`[IntegrationController]: req.body type: ${typeof req.body}, value: ${JSON.stringify(req.body).substring(0, 100)}...`);
-    console.log(`[IntegrationController]: req.rawBody type: ${req.rawBody instanceof Buffer ? 'Buffer' : typeof req.rawBody}, length: ${req.rawBody instanceof Buffer ? req.rawBody.length : 0}`);
-
-    if (contentType && (contentType.includes('application/xml') || contentType.includes('text/xml'))) {
+    // Логика извлечения сырых данных из тела запроса
+    // Добавляем условие для YAML
+    if (normalizedContentType.includes('application/xml') || normalizedContentType.includes('text/xml')) {
       if (typeof req.body === 'string' && req.body.trim().length > 0) {
         actualRawData = req.body;
-        console.log('[IntegrationController]: Using req.body (string) for XML.');
       } else if (req.rawBody instanceof Buffer && req.rawBody.length > 0) {
         actualRawData = req.rawBody.toString('utf8');
-        console.log('[IntegrationController]: Using req.rawBody (Buffer) for XML as fallback.');
-      } else {
-        console.warn('[IntegrationController]: XML body is empty or not captured correctly for XML Content-Type.');
       }
-    } else if (contentType && contentType.includes('application/json')) {
+    } else if (normalizedContentType.includes('application/json')) {
       if (typeof req.body === 'object' && req.body !== null) {
         actualRawData = JSON.stringify(req.body);
-        console.log('[IntegrationController]: Using req.body (object) for JSON, stringifying.');
       } else if (typeof req.body === 'string' && req.body.trim().length > 0) {
         actualRawData = req.body;
-        console.log('[IntegrationController]: Using req.body (string) for JSON, no stringify needed.');
       } else if (req.rawBody instanceof Buffer && req.rawBody.length > 0) {
         actualRawData = req.rawBody.toString('utf8');
-        console.log('[IntegrationController]: Using req.rawBody (Buffer) for JSON as fallback.');
+      }
+    } else if (normalizedContentType.includes('application/yaml')) { // <--- НОВОЕ: Обработка YAML Content-Type
+      if (typeof req.body === 'string' && req.body.trim().length > 0) {
+        actualRawData = req.body;
+      } else if (req.rawBody instanceof Buffer && req.rawBody.length > 0) {
+        actualRawData = req.rawBody.toString('utf8');
       } else {
-        console.warn('[IntegrationController]: JSON body is empty or not captured correctly for JSON Content-Type.');
+        console.warn('[IntegrationController]: YAML body is empty or not captured correctly for YAML Content-Type.');
       }
     } else {
+      // Если Content-Type не распознан, пытаемся взять данные как есть (может быть текстовым телом)
       if (typeof req.body === 'string' && req.body.trim().length > 0) {
         actualRawData = req.body;
         console.log('[IntegrationController]: Using req.body (string) for generic content.');
@@ -134,31 +158,32 @@ export class IntegrationController {
       }
     }
 
-    console.log(`[IntegrationController]: Итоговые сырые данные для адаптера (первые 100 символов): "${actualRawData.substring(0, 100)}..."`);
-    console.log(`[IntegrationController]: Длина итоговых rawData: ${actualRawData.length}`);
-    console.log(`[IntegrationController]: Content-Type: ${contentType}, Accept: ${acceptHeader}`);
-
     try {
-      const responseData = await this.messageProcessingFacade.processMessage(
+      const responseData = await this.messageProcessingFacade.processFormat(
         actualRawData,
         contentType,
         acceptHeader,
       );
 
-      const outboundAdapter = this.messageProcessingFacade['adapterFactory'].getOutboundAdapter(acceptHeader);
-      if (outboundAdapter instanceof InternalToXmlAdapter) {
+      // Устанавливаем Content-Type для ответа на основе выбранного исходящего конвертера
+      const outboundConverter = this.messageProcessingFacade['converterFactory'].getOutboundConverter(acceptHeader);
+      
+      if (outboundConverter instanceof InternalToXmlConverterService) {
         res.setHeader('Content-Type', 'application/xml');
-      } else if (outboundAdapter instanceof InternalToJsonAdapter) {
+      } else if (outboundConverter instanceof InternalToJsonConverterService) {
         res.setHeader('Content-Type', 'application/json');
+      } else if (outboundConverter instanceof InternalToYamlConverterService) { // <--- НОВОЕ: Установка Content-Type для YAML
+        res.setHeader('Content-Type', 'application/yaml');
       }
 
-      // Возвращаем простой объект или строку, которую адаптер уже сформировал
-      // Для успешного ответа можно вернуть что-то вроде:
-      return responseData; // Фасад уже возвращает строку (XML или JSON)
+      // Возвращаем данные, которые фасад уже преобразовал в нужный формат (строку или объект)
+      return responseData;
     } catch (error) {
-      console.error(`[IntegrationController]: Ошибка при обработке запроса: ${error.message}`);
       res.status(HttpStatus.BAD_REQUEST);
-      // Возвращаем объект ошибки, который будет сериализован в JSON или XML
+      // При ошибке также пытаемся вернуть данные в запрошенном формате, если это возможно.
+      // В данном случае, возвращаем объект, который NestJS по умолчанию сериализует в JSON.
+      // Если нужен XML/YAML ответ для ошибки, потребуется дополнительная логика сериализации здесь.
+      // Для простоты, оставим JSON по умолчанию для ошибок.
       return {
         statusCode: HttpStatus.BAD_REQUEST,
         message: error.message,

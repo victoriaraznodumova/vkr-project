@@ -6,8 +6,8 @@ import { JournalService } from './journal.service';
 import { QueryJournalEntriesDto } from './dto/query-journal-entries.dto';
 import { Journal } from './entity/journal.entity'; // Предполагаемая сущность Journal
 import { HttpStatus } from '@nestjs/common';
-import { JournalActionEnum } from './entity/journal.action.enum';
-import { JournalStatusEnum } from './entity/journal.status.enum';
+import { JournalActionEnum } from './entity/journal-action.enum';
+import { JournalStatusEnum } from './entity/journal-status.enum';
 import { Entry } from '../entries/entity/entry.entity';
 import { User } from '../users/entity/user.entity';
 

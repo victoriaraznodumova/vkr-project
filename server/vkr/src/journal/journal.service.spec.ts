@@ -7,11 +7,11 @@ import { JournalService } from './journal.service';
 import { Journal } from './entity/journal.entity';
 import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { QueryJournalEntriesDto } from './dto/query-journal-entries.dto';
-import { JournalActionEnum } from './entity/journal.action.enum';
-import { JournalStatusEnum } from './entity/journal.status.enum';
+import { JournalActionEnum } from './entity/journal-action.enum';
+import { JournalStatusEnum } from './entity/journal-status.enum';
 import { User } from '../users/entity/user.entity'; // Assuming User entity path
 import { Entry } from '../entries/entity/entry.entity'; // Assuming Entry entity path
-import { EntryStatusEnum } from '../entries/entity/entry.status.enum';
+import { EntryStatusEnum } from '../entries/entity/entry-status.enum';
 
 // --- Mock Objects for Testing ---
 

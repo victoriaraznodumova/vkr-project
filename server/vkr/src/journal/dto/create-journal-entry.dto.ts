@@ -2,8 +2,8 @@
 
 import { IsNotEmpty, IsNumber, IsString, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { JournalStatusEnum } from '../entity/journal.status.enum';
-import { JournalActionEnum } from '../entity/journal.action.enum';
+import { JournalStatusEnum } from '../entity/journal-status.enum';
+import { JournalActionEnum } from '../entity/journal-action.enum';
 
 /**
  * DTO для создания новой записи в журнале.

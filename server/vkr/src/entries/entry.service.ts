@@ -7,14 +7,14 @@ import { Entry } from './entity/entry.entity';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { EntryStatusEnum } from './entity/entry.status.enum';
+import { EntryStatusEnum } from './entity/entry-status.enum';
 import { UserService } from '../users/user.service';
 import { QueueService } from '../queues/queue.service';
 import { JournalService } from '../journal/journal.service';
 import { CreateJournalEntryDto } from '../journal/dto/create-journal-entry.dto';
-import { JournalActionEnum } from '../journal/entity/journal.action.enum';
-import { JournalStatusEnum } from '../journal/entity/journal.status.enum';
-import { QueueTypeEnum } from '../queues/entity/queue.type.enum';
+import { JournalActionEnum } from '../journal/entity/journal-action.enum';
+import { JournalStatusEnum } from '../journal/entity/journal-status.enum';
+import { QueueTypeEnum } from '../queues/entity/queue-type.enum';
 
 @Injectable()
 export class EntryService {

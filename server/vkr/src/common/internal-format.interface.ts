@@ -1,4 +1,4 @@
-export interface InternalMessage {
+export interface InternalFormat{
   queueId: number;
   userId: number;
   date?: string,

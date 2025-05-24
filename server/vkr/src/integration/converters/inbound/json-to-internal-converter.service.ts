@@ -1,11 +1,9 @@
-// src/adapters/inbound/json-to-internal.adapter.ts
+import { InboundConverter } from '../interfaces/inbound-converter.interface';
+import { InternalFormat } from '../../../common/internal-format.interface';
 
-import { InboundAdapter } from '../interfaces/inbound-adapter.interface';
-import { InternalMessage } from '../../common/internal-message.interface'; // Убедитесь, что путь правильный
-
-export class JsonToInternalAdapter implements InboundAdapter {
-  async adapt(jsonString: string): Promise<InternalMessage> {
-    console.log('[JsonToInternalAdapter]: Преобразование JSON во внутренний формат.');
+export class JsonToInternalConverterService implements InboundConverter {
+  async convert(jsonString: string): Promise<InternalFormat> {
+    // console.log('[JsonToInternalConverter]: Преобразование JSON во внутренний формат.');
     let parsedData: any;
 
     try {
@@ -14,7 +12,7 @@ export class JsonToInternalAdapter implements InboundAdapter {
       }
       parsedData = JSON.parse(jsonString);
     } catch (error) {
-      console.error(`[JsonToInternalAdapter]: Ошибка парсинга JSON: ${error.message}`);
+      console.error(`[JsonToInternalConverter]: Ошибка парсинга JSON: ${error.message}`);
       throw new Error(`Неверный формат JSON: ${error.message}`);
     }
 
@@ -27,7 +25,7 @@ export class JsonToInternalAdapter implements InboundAdapter {
     }
 
     // Создание InternalMessage с маппингом всех полей
-    const internalMessage: InternalMessage = {
+    const internalFormat: InternalFormat = {
       queueId: parsedData.queueId,
       userId: parsedData.userId,
       status: parsedData.status,
@@ -38,6 +36,6 @@ export class JsonToInternalAdapter implements InboundAdapter {
       comment: parsedData.comment,
     };
 
-    return internalMessage;
+    return internalFormat;
   }
 }

@@ -5,7 +5,7 @@
  */
 import { IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { EntryStatusEnum } from '../entity/entry.status.enum'; // !!! ОЧЕНЬ ВАЖНО: Убедитесь, что этот импорт правильный и указывает на ваш EntryStatusEnum !!!
+import { EntryStatusEnum } from '../entity/entry-status.enum'; // !!! ОЧЕНЬ ВАЖНО: Убедитесь, что этот импорт правильный и указывает на ваш EntryStatusEnum !!!
 
 /**
  * DTO для обновления статуса записи в очереди.

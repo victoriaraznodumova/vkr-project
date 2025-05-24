@@ -1,6 +1,6 @@
 import { IsOptional, IsNumberString, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { JournalActionEnum } from '../entity/journal.action.enum';
+import { JournalActionEnum } from '../entity/journal-action.enum';
 
 /**
  * DTO для фильтрации записей журнала.

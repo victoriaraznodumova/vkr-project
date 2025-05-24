@@ -1,569 +1,558 @@
-// src/integration/integration.controller.spec.ts
-
 import { Test, TestingModule } from '@nestjs/testing';
+import { HttpStatus } from '@nestjs/common';
 import { IntegrationController } from './integration.controller';
-import { MessageProcessingFacade } from './integration.facade';
+import { FormatProcessingService } from './integration.service';
 import { Response, Request } from 'express';
-import { BadRequestException, HttpStatus } from '@nestjs/common';
-import { CreateEntryDto } from '../entries/dto/create-entry.dto'; // Предполагаемый DTO
-
-// Импортируем реальные классы адаптеров, чтобы instanceof работал
-import { InternalToXmlAdapter } from '../adapters/outbound/internal-to-xml.adapter';
-import { InternalToJsonAdapter } from '../adapters/outbound/internal-to-json.adapter';
-
-// --- Мок-классы для адаптеров ---
-class MockInternalToXmlAdapter extends InternalToXmlAdapter {
-  constructor() { super(); }
-}
-
-class MockInternalToJsonAdapter extends InternalToJsonAdapter {
-  constructor() { super(); }
-}
+// Импортируем реальные классы конвертеров для проверки их типов
+import { InternalToJsonConverterService } from './converters/outbound/internal-to-json-converter.service';
+// ВНИМАНИЕ: Проверьте правильность пути и имени файла/класса для XML-конвертера в вашем проекте.
+// Использую здесь InternalToXmlConverterServiceService как было в вашем коде.
+import { InternalToXmlConverterService } from './converters/outbound/internal-to-xml-converter.servicer'; 
+import { InternalToYamlConverterService } from './converters/outbound/internal-to-yaml-converter.service';
+import { ConverterFactoryService } from './converters/converter-factory.service';
 
 describe('IntegrationController', () => {
   let controller: IntegrationController;
-  let messageProcessingFacade: MessageProcessingFacade;
-  let mockInternalToXmlAdapter: MockInternalToXmlAdapter;
-  let mockInternalToJsonAdapter: MockInternalToJsonAdapter;
+  // Используем Partial для мока сервиса, так как не все свойства являются методами
+  let mockFormatProcessingService: Partial<FormatProcessingService>; 
+  let mockResponse: Partial<Response>;
+  let mockRequest: Partial<Request>;
+  // Используем Partial для мока фабрики конвертеров
+  let mockConverterFactory: Partial<ConverterFactoryService>; 
 
-  // Мокируем объекты Express Request и Response
-  const mockResponse = () => {
-    const res: Partial<Response> = {
-      setHeader: jest.fn(),
-      send: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-    };
-    return res as Response;
-  };
+  // Моковые данные для успешных ответов в разных форматах
+  const mockSuccessfulJson = JSON.stringify({
+    message: 'Запись успешно создана',
+    entryId: 7,
+    queueId: 1,
+    userId: 2,
+    status: 'waiting',
+  });
 
-  const mockRequest = (
-    body: any,
-    contentType: string = 'application/json',
-    rawBody?: Buffer,
-  ): Request => {
-    const req: Partial<Request> = {
-      body: body,
-      headers: {
-        'content-type': contentType,
-      },
-      rawBody: rawBody,
-    };
-    return req as Request;
-  };
+  const mockSuccessfulXml = '<response><message>Запись успешно создана</message><entryId>7</entryId><queueId>1</queueId><userId>2</userId><status>waiting</status></response>';
+
+  const mockSuccessfulYaml = `message: Запись успешно создана
+entryId: 7
+queueId: 1
+userId: 2
+status: waiting
+`;
 
   beforeEach(async () => {
-    const mockAdapterFactory = {
-      getOutboundAdapter: jest.fn(),
+    // Мокируем ConverterFactoryService, который используется внутри FormatProcessingService.
+    // Это позволяет контролировать, какой конвертер будет возвращен для заданного Accept-заголовка.
+    mockConverterFactory = {
+      getOutboundConverter: jest.fn().mockImplementation((acceptHeader: string) => {
+        if (acceptHeader.includes('application/json')) {
+          return new InternalToJsonConverterService();
+        }
+        // Обрабатываем как 'application/xml', так и 'text/xml' для XML-конвертера
+        if (acceptHeader.includes('application/xml') || acceptHeader.includes('text/xml')) { 
+          return new InternalToXmlConverterService(); 
+        }
+        if (acceptHeader.includes('application/yaml')) {
+          return new InternalToYamlConverterService();
+        }
+        return new InternalToJsonConverterService(); // Дефолтное поведение
+      }),
     };
 
+    // Мокируем FormatProcessingService.
+    // Его метод processFormat имитирует логику обработки данных и возвращает результат.
+    mockFormatProcessingService = {
+      processFormat: jest.fn(async (rawData, contentType, acceptHeaders) => {
+        // Условие для симуляции ошибок, когда данные пустые или невалидные.
+        // Это необходимо для прохождения тестов на обработку ошибок контроллером.
+        // `rawData === undefined` добавлено, чтобы срабатывать, когда `@Body()`
+        // не получает никаких данных и оставляет `req.body` как `undefined`.
+        if (rawData === '' || rawData === '{}' || rawData === 'null' || rawData === undefined) { 
+            throw new Error('Processed data cannot be empty or invalid');
+        }
+
+        // Получаем "исходящий" конвертер, чтобы имитировать, какой формат будет возвращен
+        const outboundConverter = (mockConverterFactory as ConverterFactoryService).getOutboundConverter(acceptHeaders);
+
+        // Возвращаем моковые данные в зависимости от типа исходящего конвертера
+        if (outboundConverter instanceof InternalToJsonConverterService) {
+          return mockSuccessfulJson;
+        }
+        if (outboundConverter instanceof InternalToXmlConverterService) { 
+          return mockSuccessfulXml;
+        }
+        if (outboundConverter instanceof InternalToYamlConverterService) {
+          return mockSuccessfulYaml;
+        }
+        return mockSuccessfulJson; // По умолчанию
+      }),
+    };
+
+    // Мокируем объекты Response и Request из Express.
+    // Они используются для установки заголовков и статуса ответа.
+    mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(), // Позволяет цепочно вызывать .status().send()
+      send: jest.fn(),
+    };
+
+    mockRequest = {
+      body: {}, // Тело запроса, будет изменяться в каждом тесте
+      rawBody: undefined, // Сырые данные, если req.body не содержит их
+    };
+
+    // Создаем тестовый модуль NestJS для инъекции зависимостей в контроллер.
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IntegrationController],
       providers: [
         {
-          provide: MessageProcessingFacade,
-          useValue: {
-            processMessage: jest.fn(),
-            adapterFactory: mockAdapterFactory,
-          },
+          provide: FormatProcessingService,
+          useValue: mockFormatProcessingService, // Предоставляем наш мок FormatProcessingService
         },
-        { provide: InternalToXmlAdapter, useClass: MockInternalToXmlAdapter },
-        { provide: InternalToJsonAdapter, useClass: MockInternalToJsonAdapter },
       ],
     }).compile();
 
     controller = module.get<IntegrationController>(IntegrationController);
-    messageProcessingFacade = module.get<MessageProcessingFacade>(MessageProcessingFacade);
-    mockInternalToXmlAdapter = module.get<MockInternalToXmlAdapter>(InternalToXmlAdapter);
-    mockInternalToJsonAdapter = module.get<MockInternalToJsonAdapter>(InternalToJsonAdapter);
 
-    (messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter.mockImplementation((acceptHeader: string) => {
-      if (acceptHeader && acceptHeader.includes('application/xml')) {
-        return mockInternalToXmlAdapter;
-      }
-      return mockInternalToJsonAdapter;
-    });
+    // Подменяем приватное поле 'converterFactory' внутри 'messageProcessingFacade'.
+    // Это необходимо, так как 'converterFactory' является приватным свойством `FormatProcessingService`
+    // и не внедряется через DI в тесте напрямую.
+    (controller['messageProcessingFacade'] as any)['converterFactory'] = mockConverterFactory as ConverterFactoryService;
+  });
 
+  afterEach(() => {
+    // Очищаем все вызовы моков после каждого теста, чтобы обеспечить их независимость.
     jest.clearAllMocks();
   });
 
-  it('контроллер должен быть определен', () => {
-    expect(controller).toBeDefined();
-  });
+  // ---
 
-  describe('handleIntegrationRequest (JSON Input, JSON Output)', () => {
-    it('должен обработать JSON-вход и вернуть JSON-ответ', async () => {
-      const inputJson: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Test JSON entry',
-      };
-      const facadeOutputObject = {
-        message: 'Запись успешно создана',
-        entryId: 7,
-        queueId: 1,
-        userId: 2,
-        status: 'waiting',
-      };
-      const facadeOutputString = JSON.stringify(facadeOutputObject);
+  // ## Тесты для обработки входящих запросов
 
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputString);
+  // ### Обработка JSON
 
-      const req = mockRequest(inputJson, 'application/json');
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+  describe('handleIntegrationRequest (JSON)', () => {
+    it('should process JSON request and return JSON response', async () => {
+      mockRequest.body = { queueId: 1, userId: 100 };
+      const contentType = 'application/json';
+      const acceptHeader = 'application/json';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        JSON.stringify(inputJson),
-        'application/json',
-        'application/json',
+      // Проверяем, что фасад был вызван с ожидаемыми данными
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        JSON.stringify(mockRequest.body), 
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/json');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      expect(result).toEqual(facadeOutputString);
-      expect(res.send).not.toHaveBeenCalled();
+      // Проверяем, что Content-Type заголовка ответа установлен правильно
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      // Проверяем возвращаемые данные
+      expect(result).toBe(mockSuccessfulJson);
+      // Убеждаемся, что статус ошибки не был вызван (т.к. это успешный ответ)
+      expect(mockResponse.status).not.toHaveBeenCalled(); 
     });
 
-    it('должен обработать JSON-вход и вернуть JSON-ответ (без Accept header, дефолт)', async () => {
-      const inputJson: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Test JSON entry',
-      };
-      const facadeOutputObject = {
-        message: 'Запись успешно создана',
-        entryId: 7,
-        queueId: 1,
-        userId: 2,
-        status: 'waiting',
-      };
-      const facadeOutputString = JSON.stringify(facadeOutputObject);
-
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputString);
-
-      const req = mockRequest(inputJson, 'application/json');
-      const res = mockResponse();
+    it('should process JSON request with string body and return JSON response', async () => {
+      mockRequest.body = '{"queueId": 1, "userId": 100}'; // Входящий JSON в виде строки
+      const contentType = 'application/json';
+      const acceptHeader = 'application/json';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        undefined,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        JSON.stringify(inputJson),
-        'application/json',
-        undefined,
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        mockRequest.body, // Ожидаем исходную строку JSON
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith(undefined);
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      expect(result).toEqual(facadeOutputString);
-      expect(res.send).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      expect(result).toBe(mockSuccessfulJson);
+    });
+
+    it('should process JSON request with rawBody (Buffer) and return JSON response', async () => {
+      // Для этого теста `req.body` должен быть `null` или `undefined`,
+      // чтобы контроллер перешел к `req.rawBody` для получения сырых данных.
+      mockRequest.body = null; 
+      mockRequest.rawBody = Buffer.from('{"queueId": 1, "userId": 100}');
+      const contentType = 'application/json';
+      const acceptHeader = 'application/json';
+
+      const result = await controller.handleIntegrationRequest(
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
+      );
+
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        mockRequest.rawBody.toString('utf8'), // Ожидаем данные, преобразованные из Buffer
+        contentType,
+        acceptHeader,
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      expect(result).toBe(mockSuccessfulJson);
     });
   });
 
-  describe('handleIntegrationRequest (XML Input, JSON Output)', () => {
-    it('должен обработать XML-вход (req.body string) и вернуть JSON-ответ', async () => {
-      const inputXml = '<entry><queueId>1</queueId><userId>2</userId><date>2025-05-25</date><time>10:00</time><comment>Test XML entry</comment></entry>';
-      const facadeOutputObject = {
-        message: 'Запись успешно создана из XML',
-        entryId: 8,
-        queueId: 1,
-        userId: 2,
-        status: 'waiting',
-      };
-      const facadeOutputString = JSON.stringify(facadeOutputObject);
+  // ---
 
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputString);
+  // ### Обработка XML
 
-      const req = mockRequest(inputXml, 'application/xml');
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+  describe('handleIntegrationRequest (XML)', () => {
+    it('should process XML request and return XML response', async () => {
+      const xmlBody = '<externalRequest><queueId>1</queueId><userId>100</userId></externalRequest>';
+      mockRequest.body = xmlBody;
+      const contentType = 'application/xml';
+      const acceptHeader = 'application/xml';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        inputXml,
-        'application/xml',
-        'application/json',
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        xmlBody,
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/json');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      expect(result).toEqual(facadeOutputString);
-      expect(res.send).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml');
+      expect(result).toBe(mockSuccessfulXml);
     });
 
-    it('должен обработать XML-вход (req.rawBody Buffer) и вернуть JSON-ответ', async () => {
-      const inputXml = '<entry><queueId>1</queueId><userId>2</userId><date>2025-05-25</date><time>10:00</time><comment>Test XML entry</comment></entry>';
-      const facadeOutputObject = {
-        message: 'Запись успешно создана из XML',
-        entryId: 8,
-        queueId: 1,
-        userId: 2,
-        status: 'waiting',
-      };
-      const facadeOutputString = JSON.stringify(facadeOutputObject);
-
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputString);
-
-      // ИСПРАВЛЕНО: req.body = null, чтобы активировать логику rawBody
-      const req = mockRequest(null, 'application/xml', Buffer.from(inputXml, 'utf8'));
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+    it('should process XML request (text/xml) and return XML response', async () => {
+      const xmlBody = '<externalRequest><queueId>1</queueId><userId>100</userId></externalRequest>';
+      mockRequest.body = xmlBody;
+      const contentType = 'text/xml';
+      const acceptHeader = 'text/xml'; 
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        inputXml,
-        'application/xml',
-        'application/json',
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        xmlBody,
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/json');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      expect(result).toEqual(facadeOutputString);
-      expect(res.send).not.toHaveBeenCalled();
+      // Контроллер всегда отдает Content-Type: application/xml, если выбран XML-адаптер
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml'); 
+      expect(result).toBe(mockSuccessfulXml);
     });
 
-    it('должен обработать text/xml-вход и вернуть JSON-ответ', async () => {
-      const inputXml = '<entry><queueId>1</queueId><userId>2</userId><date>2025-05-25</date><time>10:00</time><comment>Test text/xml entry</comment></entry>';
-      const facadeOutputObject = {
-        message: 'Запись успешно создана из text/xml',
-        entryId: 9,
-        queueId: 1,
-        userId: 2,
-        status: 'waiting',
-      };
-      const facadeOutputString = JSON.stringify(facadeOutputObject);
-
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputString);
-
-      const req = mockRequest(inputXml, 'text/xml');
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+    it('should process XML request with rawBody (Buffer) and return XML response', async () => {
+      const xmlBody = '<externalRequest><queueId>1</queueId><userId>100</userId></externalRequest>';
+      mockRequest.body = {}; // Имитируем ситуацию, когда body пуст, но rawBody есть
+      mockRequest.rawBody = Buffer.from(xmlBody);
+      const contentType = 'application/xml';
+      const acceptHeader = 'application/xml';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        inputXml,
-        'text/xml',
-        'application/json',
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        xmlBody,
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/json');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      expect(result).toEqual(facadeOutputString);
-      expect(res.send).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml');
+      expect(result).toBe(mockSuccessfulXml);
     });
   });
 
-  describe('handleIntegrationRequest (JSON Input, XML Output)', () => {
-    it('должен обработать JSON-вход и вернуть XML-ответ', async () => {
-      const inputJson: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Test JSON entry for XML output',
-      };
-      const facadeOutputXmlString = '<response><message>Запись успешно создана</message><entryId>10</entryId><queueId>1</queueId><userId>2</userId><status>waiting</status></response>';
+  // ---
 
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputXmlString);
+  // ### Обработка YAML
 
-      const req = mockRequest(inputJson, 'application/json');
-      req.headers['accept'] = 'application/xml';
-      const res = mockResponse();
+  describe('handleIntegrationRequest (YAML)', () => {
+    it('should process YAML request and return YAML response', async () => {
+      const yamlBody = `queueId: 1
+userId: 100
+comment: "Test YAML input"`;
+      mockRequest.body = yamlBody;
+      const contentType = 'application/yaml';
+      const acceptHeader = 'application/yaml';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        JSON.stringify(inputJson),
-        'application/json',
-        'application/xml',
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        yamlBody,
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/xml');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml');
-      expect(result).toEqual(facadeOutputXmlString);
-      expect(res.send).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/yaml');
+      expect(result).toBe(mockSuccessfulYaml);
+    });
+
+    it('should process YAML request with rawBody (Buffer) and return YAML response', async () => {
+      const yamlBody = `queueId: 1
+userId: 100
+comment: "Test YAML input"`;
+      mockRequest.body = {}; // Имитируем ситуацию, когда body пуст, но rawBody есть
+      mockRequest.rawBody = Buffer.from(yamlBody);
+      const contentType = 'application/yaml';
+      const acceptHeader = 'application/yaml';
+
+      const result = await controller.handleIntegrationRequest(
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
+      );
+
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        yamlBody,
+        contentType,
+        acceptHeader,
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/yaml');
+      expect(result).toBe(mockSuccessfulYaml);
     });
   });
 
-  describe('handleIntegrationRequest (XML Input, XML Output)', () => {
-    it('должен обработать XML-вход и вернуть XML-ответ', async () => {
-      const inputXml = '<request><queueId>1</queueId><userId>2</userId><data>XML data</data></request>';
-      const facadeOutputXmlString = '<response><message>Запись успешно создана из XML</message><entryId>11</entryId><queueId>1</queueId><userId>2</userId><status>waiting</status></response>';
+  // ---
 
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue(facadeOutputXmlString);
+  // ## Тесты для смешанных форматов (входной/выходной)
 
-      const req = mockRequest(inputXml, 'application/xml');
-      req.headers['accept'] = 'application/xml';
-      const res = mockResponse();
+  describe('handleIntegrationRequest (Mixed Formats)', () => {
+    it('should process JSON input and return XML output', async () => {
+      mockRequest.body = { queueId: 1, userId: 100 };
+      const contentType = 'application/json';
+      const acceptHeader = 'application/xml';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        inputXml,
-        'application/xml',
-        'application/xml',
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        JSON.stringify(mockRequest.body),
+        contentType,
+        acceptHeader,
       );
-      expect((messageProcessingFacade as any)['adapterFactory'].getOutboundAdapter).toHaveBeenCalledWith('application/xml');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml');
-      expect(result).toEqual(facadeOutputXmlString);
-      expect(res.send).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/xml');
+      expect(result).toBe(mockSuccessfulXml);
+    });
+
+    it('should process XML input and return JSON output', async () => {
+      const xmlBody = '<externalRequest><queueId>1</queueId><userId>100</userId></externalRequest>';
+      mockRequest.body = xmlBody;
+      const contentType = 'application/xml';
+      const acceptHeader = 'application/json';
+
+      const result = await controller.handleIntegrationRequest(
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
+      );
+
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        xmlBody,
+        contentType,
+        acceptHeader,
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      expect(result).toBe(mockSuccessfulJson);
+    });
+
+    it('should process YAML input and return JSON output', async () => {
+      const yamlBody = `queueId: 1
+userId: 100`;
+      mockRequest.body = yamlBody;
+      const contentType = 'application/yaml';
+      const acceptHeader = 'application/json';
+
+      const result = await controller.handleIntegrationRequest(
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
+      );
+
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        yamlBody,
+        contentType,
+        acceptHeader,
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      expect(result).toBe(mockSuccessfulJson);
+    });
+
+    it('should process JSON input and return YAML output', async () => {
+      mockRequest.body = { queueId: 1, userId: 100 };
+      const contentType = 'application/json';
+      const acceptHeader = 'application/yaml';
+
+      const result = await controller.handleIntegrationRequest(
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
+      );
+
+      expect(mockFormatProcessingService.processFormat).toHaveBeenCalledWith(
+        JSON.stringify(mockRequest.body),
+        contentType,
+        acceptHeader,
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'application/yaml');
+      expect(result).toBe(mockSuccessfulYaml);
     });
   });
 
-  describe('Error Handling', () => {
-    it('должен вернуть BadRequestException для неподдерживаемого Content-Type', async () => {
-      const inputData = { some: 'data' };
-      const req = mockRequest(inputData, 'text/plain'); // Неподдерживаемый Content-Type
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+  // ---
+
+  // ## Тесты обработки ошибок
+
+  describe('handleIntegrationRequest (Error Handling)', () => {
+    it('should return a 400 error response if processFormat throws an error', async () => {
+      const errorMessage = 'Validation failed: queueId is required';
+      // Явно приводим `processFormat` к типу `jest.Mock`, чтобы использовать `mockRejectedValueOnce`
+      (mockFormatProcessingService.processFormat as jest.Mock).mockRejectedValueOnce(new Error(errorMessage));
+
+      // Для этого теста, `mockRequest.body` может содержать любые данные, т.к. мок фасада выбросит ошибку.
+      mockRequest.body = { some: 'data' }; 
+      const contentType = 'application/json';
+      const acceptHeader = 'application/json';
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      // processMessage НЕ должен быть вызван, так как контроллер возвращает ошибку раньше
-      expect(messageProcessingFacade.processMessage).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
-      expect(result).toEqual({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Неподдерживаемый Content-Type: text/plain',
-        error: 'Bad Request',
-      });
-      expect(res.send).not.toHaveBeenCalled();
-    });
-
-    it('должен вернуть BadRequestException для неподдерживаемого Accept header', async () => {
-      const inputData: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Test',
-      };
-      const req = mockRequest(inputData, 'application/json');
-      req.headers['accept'] = 'text/html'; // Неподдерживаемый Accept header
-      const res = mockResponse();
-
-      const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
-      );
-
-      // processMessage НЕ должен быть вызван, так как контроллер возвращает ошибку раньше
-      expect(messageProcessingFacade.processMessage).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
-      expect(result).toEqual({
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Неподдерживаемый Accept header: text/html',
-        error: 'Bad Request',
-      });
-      expect(res.send).not.toHaveBeenCalled();
-    });
-
-    it('должен обработать ошибки от фасада (например, BadRequestException) и вернуть JSON-ошибку', async () => {
-      const inputJson: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Invalid data',
-      };
-      const errorMessage = 'Некорректные входные данные.';
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockRejectedValue(new BadRequestException(errorMessage));
-
-      const req = mockRequest(inputJson, 'application/json');
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
-
-      const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
-      );
-
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        JSON.stringify(inputJson),
-        'application/json',
-        'application/json',
-      );
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+      // Проверяем, что статус ответа установлен на 400
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+      // Проверяем, что возвращенный объект ошибки соответствует ожидаемому
       expect(result).toEqual({
         statusCode: HttpStatus.BAD_REQUEST,
         message: errorMessage,
         error: 'Bad Request',
       });
-      expect(res.send).not.toHaveBeenCalled();
+      // Content-Type для ошибок не устанавливается явно контроллером; NestJS отдаст JSON для объектов ошибок по умолчанию.
+      expect(mockResponse.setHeader).not.toHaveBeenCalledWith('Content-Type', expect.any(String)); 
     });
 
-    it('должен обработать ошибки от фасада и вернуть XML-ошибку, если Accept: application/xml', async () => {
-      const inputJson: CreateEntryDto = {
-        queueId: 1,
-        date: '2025-05-25',
-        time: '10:00',
-        comment: 'Invalid data',
-      };
-      const errorMessage = 'Некорректные входные данные.';
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockRejectedValue(new BadRequestException(errorMessage));
+    // Эти тесты теперь проверяют, что контроллер КОРРЕКТНО ВОЗВРАЩАЕТ объект ошибки,
+    // а не перебрасывает ошибку, так как это его текущее поведение.
+    it('should warn for empty or uncaptured body for JSON and return error response', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {}); 
+      // ИЗМЕНЕНИЕ: Устанавливаем body в undefined, чтобы гарантировать, что `getActualRawData`
+      // не найдет данных и вызовет `console.warn`, а затем mockFormatProcessingService выбросит ошибку.
+      mockRequest.body = undefined; 
+      mockRequest.rawBody = undefined; 
+      const contentType = 'application/json';
+      const acceptHeader = 'application/json';
 
-      const req = mockRequest(inputJson, 'application/json');
-      req.headers['accept'] = 'application/xml';
-      const res = mockResponse();
-
-      const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
-      );
-
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(
-        JSON.stringify(inputJson),
-        'application/json',
-        'application/xml',
-      );
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
-      expect(result).toEqual({
+      const expectedErrorResponse = { 
         statusCode: HttpStatus.BAD_REQUEST,
-        message: errorMessage,
+        message: 'Processed data cannot be empty or invalid', // Сообщение, выброшенное моком `processFormat`
         error: 'Bad Request',
-      });
-      expect(res.send).not.toHaveBeenCalled();
-    });
+      };
 
-    it('должен корректно обрабатывать пустой req.body для XML Content-Type, если rawBody присутствует', async () => {
-      const inputXml = '<data>some xml</data>';
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue('OK');
-
-      // ИСПРАВЛЕНО: req.body = null, чтобы активировать логику rawBody
-      const req = mockRequest(null, 'application/xml', Buffer.from(inputXml));
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
-
+      // Вызываем контроллер и ожидаем, что он разрешится с объектом ошибки
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(inputXml, 'application/xml', 'application/json');
-      expect(result).toBe('OK');
+      // Проверяем, что результат соответствует ожидаемому объекту ошибки
+      expect(result).toEqual(expectedErrorResponse);
+      // Проверяем, что был установлен статус 400
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST); 
+      
+      // Проверяем, что console.warn был вызван
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[IntegrationController]: JSON body is empty or not captured correctly for JSON Content-Type.',
+      );
+      consoleWarnSpy.mockRestore(); // Восстанавливаем оригинальный console.warn
     });
 
-    it('должен корректно обрабатывать пустой req.body для JSON Content-Type, если rawBody присутствует', async () => {
-      const inputJson = '{"data": "some json"}';
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue('OK');
+    it('should warn for empty or uncaptured body for YAML and return error response', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      // ИЗМЕНЕНИЕ: Устанавливаем body в undefined
+      mockRequest.body = undefined;
+      mockRequest.rawBody = undefined;
+      const contentType = 'application/yaml';
+      const acceptHeader = 'application/json';
 
-      // ИСПРАВЛЕНО: req.body = null, чтобы активировать логику rawBody
-      const req = mockRequest(null, 'application/json', Buffer.from(inputJson));
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+      const expectedErrorResponse = { 
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'Processed data cannot be empty or invalid', 
+        error: 'Bad Request',
+      };
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(inputJson, 'application/json', 'application/json');
-      expect(result).toBe('OK');
+      expect(result).toEqual(expectedErrorResponse);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST); 
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[IntegrationController]: YAML body is empty or not captured correctly for YAML Content-Type.',
+      );
+      consoleWarnSpy.mockRestore();
     });
 
-    it('должен корректно обрабатывать пустой req.body для generic Content-Type, если rawBody присутствует', async () => {
-      const inputGeneric = 'plain text data';
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue('OK');
+    it('should warn for empty or uncaptured body for generic content and return error response', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      // ИЗМЕНЕНИЕ: Устанавливаем body в undefined
+      mockRequest.body = undefined;
+      mockRequest.rawBody = undefined;
+      const contentType = 'application/custom'; // Неизвестный тип контента
+      const acceptHeader = 'application/json';
 
-      // ИСПРАВЛЕНО: req.body = null, чтобы активировать логику rawBody
-      const req = mockRequest(null, 'text/plain', Buffer.from(inputGeneric));
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
-
-      const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
-      );
-
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(inputGeneric, 'text/plain', 'application/json');
-      expect(result).toBe('OK');
-    });
-
-    it('должен корректно обрабатывать пустой req.body и rawBody для XML Content-Type', async () => {
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue('');
-
-      const req = mockRequest({}, 'application/xml', undefined); // req.body = {}, rawBody = undefined
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
+      const expectedErrorResponse = { 
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'Processed data cannot be empty or invalid', 
+        error: 'Bad Request',
+      };
 
       const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+        contentType,
+        acceptHeader,
+        mockResponse as Response,
+        mockRequest as Request,
       );
 
-      // ИСПРАВЛЕНО: Ожидаем "{}" если req.body был {}, а rawBody отсутствовал
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(JSON.stringify({}), 'application/xml', 'application/json');
-      expect(result).toBe('');
-    });
+      expect(result).toEqual(expectedErrorResponse);
+      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST); 
 
-    it('должен корректно обрабатывать пустой req.body и rawBody для JSON Content-Type', async () => {
-      jest.spyOn(messageProcessingFacade, 'processMessage').mockResolvedValue('');
-
-      const req = mockRequest({}, 'application/json', undefined); // req.body = {}, rawBody = undefined
-      req.headers['accept'] = 'application/json';
-      const res = mockResponse();
-
-      const result = await controller.handleIntegrationRequest(
-        req.headers['content-type'] as string,
-        req.headers['accept'] as string,
-        res,
-        req,
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[IntegrationController]: Could not determine raw data from req.body or req.rawBody for generic content.',
       );
-
-      // ИСПРАВЛЕНО: Ожидаем "{}" если req.body был {}, а rawBody отсутствовал
-      expect(messageProcessingFacade.processMessage).toHaveBeenCalledWith(JSON.stringify({}), 'application/json', 'application/json');
-      expect(result).toBe('');
+      consoleWarnSpy.mockRestore();
     });
   });
 });

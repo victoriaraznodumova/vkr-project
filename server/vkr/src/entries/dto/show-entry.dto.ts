@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { IsNumber, IsString, IsEnum, IsDate, IsOptional } from 'class-validator';
-import { EntryStatusEnum } from '../entity/entry.status.enum'; // Импортируем ENUM статусов
+import { EntryStatusEnum } from '../entity/entry-status.enum'; // Импортируем ENUM статусов
 import { UserDto } from '../../users/dto/user.dto'; // Предполагается, что у вас есть UserDto
 import { QueueDto } from '../../queues/dto/queue.dto'; // Предполагается, что у вас есть QueueDto
 import { JournalDto } from '../../journal/dto/journal.dto'; // Предполагается, что у вас есть JournalDto

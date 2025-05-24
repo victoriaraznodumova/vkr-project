@@ -13,8 +13,8 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { QueueTypeEnum } from './queue.type.enum';
-import { QueueVisibilityEnum } from './queue.visibility.enum';
+import { QueueTypeEnum } from './queue-type.enum';
+import { QueueVisibilityEnum } from './queue-visibility.enum';
 import { User } from '../../users/entity/user.entity';
 
 @Entity('queues')

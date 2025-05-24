@@ -1,20 +1,18 @@
-// src/adapters/inbound/json-to-internal.adapter.spec.ts
+import { JsonToInternalConverterService } from './json-to-internal-converter.service';
+import { InternalFormat } from '../../../common/internal-format.interface'; // Убедитесь, что путь правильный
 
-import { JsonToInternalAdapter } from './json-to-internal.adapter';
-import { InternalMessage } from '../../common/internal-message.interface'; // Убедитесь, что путь правильный
-
-describe('JsonToInternalAdapter', () => {
-  let adapter: JsonToInternalAdapter;
+describe('JsonToInternalConverter', () => {
+  let converter: JsonToInternalConverterService;
 
   beforeEach(() => {
-    adapter = new JsonToInternalAdapter();
+    converter = new JsonToInternalConverterService();
   });
 
   it('должен быть определен', () => {
-    expect(adapter).toBeDefined();
+    expect(converter).toBeDefined();
   });
 
-  describe('adapt', () => {
+  describe('convert', () => {
     it('должен успешно преобразовать валидный JSON в InternalMessage', async () => {
       const jsonString = JSON.stringify({
         queueId: 1,
@@ -27,7 +25,7 @@ describe('JsonToInternalAdapter', () => {
         comment: 'Test comment',
       });
 
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 1,
         userId: 10,
         status: 'waiting',
@@ -38,7 +36,7 @@ describe('JsonToInternalAdapter', () => {
         comment: 'Test comment',
       };
 
-      const result = await adapter.adapt(jsonString);
+      const result = await converter.convert(jsonString);
       expect(result).toEqual(expected);
     });
 
@@ -48,10 +46,10 @@ describe('JsonToInternalAdapter', () => {
         userId: 50,
       });
 
-      const expected: InternalMessage = {
+      const expected: InternalFormat = {
         queueId: 5,
         userId: 50,
-        status: undefined, // Ожидаем undefined для отсутствующих необязательных полей
+        status: undefined,
         date: undefined,
         time: undefined,
         notificationMinutes: undefined,
@@ -59,44 +57,44 @@ describe('JsonToInternalAdapter', () => {
         comment: undefined,
       };
 
-      const result = await adapter.adapt(jsonString);
+      const result = await converter.convert(jsonString);
       expect(result).toEqual(expected);
     });
 
     it('должен выбросить ошибку для невалидного JSON', async () => {
       const invalidJson = '{ "queueId": 1, "userId": 10, }'; // Ошибка синтаксиса (запятая в конце)
-      await expect(adapter.adapt(invalidJson)).rejects.toThrow(/Неверный формат JSON: (Unexpected token }|Expected double-quoted property name)/);
+      await expect(converter.convert(invalidJson)).rejects.toThrow(/Неверный формат JSON: (Unexpected token }|Expected double-quoted property name)/);
     });
 
     it('должен выбросить ошибку, если userId отсутствует', async () => {
       const jsonWithoutUserId = JSON.stringify({
         queueId: 1,
       });
-      await expect(adapter.adapt(jsonWithoutUserId)).rejects.toThrow('Отсутствует обязательное поле: userId');
+      await expect(converter.convert(jsonWithoutUserId)).rejects.toThrow('Отсутствует обязательное поле: userId');
     });
 
     it('должен выбросить ошибку, если queueId отсутствует', async () => {
       const jsonWithoutQueueId = JSON.stringify({
         userId: 10,
       });
-      await expect(adapter.adapt(jsonWithoutQueueId)).rejects.toThrow('Отсутствует обязательное поле: queueId');
+      await expect(converter.convert(jsonWithoutQueueId)).rejects.toThrow('Отсутствует обязательное поле: queueId');
     });
 
     it('должен обрабатывать пустую строку как невалидный JSON', async () => {
-      await expect(adapter.adapt('')).rejects.toThrow('Неверный формат JSON: Unexpected end of JSON input');
+      await expect(converter.convert('')).rejects.toThrow('Неверный формат JSON: Unexpected end of JSON input');
     });
 
     it('должен обрабатывать null как невалидный JSON', async () => {
       // JSON.parse(null) возвращает null, но наша логика теперь проверяет тип входных данных
-      await expect(adapter.adapt(null as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
+      await expect(converter.convert(null as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
     });
 
     it('должен обрабатывать undefined как невалидный JSON', async () => {
-      await expect(adapter.adapt(undefined as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
+      await expect(converter.convert(undefined as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
     });
 
     it('должен обрабатывать число как невалидный JSON', async () => {
-      await expect(adapter.adapt(123 as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
+      await expect(converter.convert(123 as any)).rejects.toThrow('Неверный формат JSON: Входные данные не являются строкой JSON.');
     });
   });
 });

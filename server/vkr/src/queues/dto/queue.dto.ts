@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { IsNumber, IsString, IsEnum, IsDate, IsOptional } from 'class-validator';
-import { QueueTypeEnum } from '../entity/queue.type.enum'; // Импортируем ENUM типа очереди
-import { QueueVisibilityEnum } from '../entity/queue.visibility.enum'; // Импортируем ENUM видимости очереди
+import { QueueTypeEnum } from '../entity/queue-type.enum'; // Импортируем ENUM типа очереди
+import { QueueVisibilityEnum } from '../entity/queue-visibility.enum'; // Импортируем ENUM видимости очереди
 import { OrganizationDto } from '../../organizations/dto/organization.dto'; // Предполагается, что у вас есть OrganizationDto
 import { UserDto } from '../../users/dto/user.dto'; // Предполагается, что у вас есть UserDto
 // Импортируем DTO для связанных сущностей, если они будут подтягиваться
