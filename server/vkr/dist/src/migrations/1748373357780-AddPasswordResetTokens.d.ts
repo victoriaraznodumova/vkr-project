@@ -1,6 +1,5 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
-export declare class Migrations1748372418715 implements MigrationInterface {
-    name: string;
+export declare class AddPasswordResetTokens1748373357780 implements MigrationInterface {
     up(queryRunner: QueryRunner): Promise<void>;
     down(queryRunner: QueryRunner): Promise<void>;
 }
