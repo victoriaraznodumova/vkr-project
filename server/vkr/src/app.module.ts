@@ -33,6 +33,8 @@ import { IntegrationModule } from './integration/integration.module';
       synchronize: false, //отключаем автосинхронизацию(в противном случае при каждом перезапуске наша БД будет создаваться заново)
       logging: 'all', //включим логирование для удобства отслеживания процессов
       entities: ['dist/**/*.entity{.ts,.js}'], //указываем путь к сущностям
+      migrations: [__dirname + '/migration/*{.ts,.js}'],
+      migrationsRun: true, // чтобы миграции запускались автоматически при старте
 
     }),
     UserModule,
