@@ -17,7 +17,7 @@ export const AppDataSource = new DataSource({
   // migrations: ['src/migration/*.ts'],
 
   entities: ['dist/**/*.entity{.js,.ts}'], // если билд запускается
-  migrations: ['dist/migrations/migrations/*.js'], 
+  migrations: ['dist/src/migrations/migrations/*.js'], 
 
   migrationsTableName: 'migrations',
 });
