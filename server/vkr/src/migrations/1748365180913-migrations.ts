@@ -14,7 +14,7 @@ export class Migrations1748365180913 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "user_id_fkey"`);
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "queue_id_fkey"`);
         await queryRunner.query(`DROP INDEX "public"."idx_password_reset_tokens_user_token_valid"`);
-        await queryRunner.query(`CREATE TABLE "password_reset_codes" ("id" SERIAL NOT NULL, "code" character varying(6) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "is_valid" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "user_id" integer NOT NULL, CONSTRAINT "UQ_f1399d5463bc09f8075a5739da1" UNIQUE ("code"), CONSTRAINT "PK_f3a88f7bc4536c53f2b277a0b56" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "password_reset_tokens" ("id" SERIAL NOT NULL, "code" character varying(6) NOT NULL, "expires_at" TIMESTAMP NOT NULL, "is_valid" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "user_id" integer NOT NULL, CONSTRAINT "UQ_f1399d5463bc09f8075a5739da1" UNIQUE ("code"), CONSTRAINT "PK_f3a88f7bc4536c53f2b277a0b56" PRIMARY KEY ("id"))`);
         await queryRunner.query(`ALTER TABLE "organizations" DROP CONSTRAINT "organizations_pkey"`);
         await queryRunner.query(`ALTER TABLE "organizations" DROP COLUMN "organization_id"`);
         await queryRunner.query(`ALTER TABLE "organizations" ADD "organization_id" SERIAL NOT NULL`);
@@ -117,11 +117,11 @@ export class Migrations1748365180913 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "queues" ADD CONSTRAINT "FK_09b6a33172f829515f478156120" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "administrators" ADD CONSTRAINT "FK_12ff2aff54e3fca4b036bfea20b" FOREIGN KEY ("queue_id") REFERENCES "queues"("queue_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "administrators" ADD CONSTRAINT "FK_fc23800cd060320637aa05f21f6" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "password_reset_codes" ADD CONSTRAINT "FK_421ca49f5a7b180365035267ca6" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "FK_421ca49f5a7b180365035267ca6" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "password_reset_codes" DROP CONSTRAINT "FK_421ca49f5a7b180365035267ca6"`);
+        await queryRunner.query(`ALTER TABLE "password_reset_tokens" DROP CONSTRAINT "FK_421ca49f5a7b180365035267ca6"`);
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "FK_fc23800cd060320637aa05f21f6"`);
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "FK_12ff2aff54e3fca4b036bfea20b"`);
         await queryRunner.query(`ALTER TABLE "queues" DROP CONSTRAINT "FK_09b6a33172f829515f478156120"`);
@@ -224,7 +224,7 @@ export class Migrations1748365180913 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "organizations" DROP COLUMN "organization_id"`);
         await queryRunner.query(`ALTER TABLE "organizations" ADD "organization_id" bigint GENERATED ALWAYS AS IDENTITY NOT NULL`);
         await queryRunner.query(`ALTER TABLE "organizations" ADD CONSTRAINT "organizations_pkey" PRIMARY KEY ("organization_id")`);
-        await queryRunner.query(`DROP TABLE "password_reset_codes"`);
+        await queryRunner.query(`DROP TABLE "password_reset_tokens"`);
         await queryRunner.query(`CREATE INDEX "idx_password_reset_tokens_user_token_valid" ON "password_reset_tokens" ("user_id", "token", "is_valid") `);
         await queryRunner.query(`ALTER TABLE "administrators" ADD CONSTRAINT "queue_id_fkey" FOREIGN KEY ("queue_id", "queue_id") REFERENCES "queues"("queue_id","queue_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "administrators" ADD CONSTRAINT "user_id_fkey" FOREIGN KEY ("user_id", "user_id", "created_by_user_id") REFERENCES "users"("user_id","user_id","user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);

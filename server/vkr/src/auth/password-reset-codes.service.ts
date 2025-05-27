@@ -3,7 +3,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
-import { PasswordResetCode } from './entity/password-reset-code.entity';
+import { PasswordResetToken } from './entity/password-reset-token.entity';
 import { User } from '../users/entity/user.entity';
 import { MailerService } from '@nestjs-modules/mailer'; // Импортируем MailerService
 import { ConfigService } from '@nestjs/config'; // Импортируем ConfigService
@@ -11,8 +11,8 @@ import { ConfigService } from '@nestjs/config'; // Импортируем Config
 @Injectable()
 export class PasswordResetCodesService {
   constructor(
-    @InjectRepository(PasswordResetCode)
-    private passwordResetCodeRepository: Repository<PasswordResetCode>,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetCodeRepository: Repository<PasswordResetToken>,
     private mailerService: MailerService, // Инжектируем MailerService
     private configService: ConfigService, // Инжектируем ConfigService для получения настроек
   ) {}
@@ -32,7 +32,7 @@ export class PasswordResetCodesService {
    * @param user Пользователь, для которого создается токен.
    * @returns Promise с созданным токеном.
    */
-  async createCode(user: User): Promise<PasswordResetCode> {
+  async createCode(user: User): Promise<PasswordResetToken> {
     await this.invalidateCodesForUser(user.userId);
 
     const code = this.generateNumericCode();
@@ -44,7 +44,7 @@ export class PasswordResetCodesService {
 
     const newCode = this.passwordResetCodeRepository.create({
       userId: user.userId,
-      code: code,
+      token: code,
       expiresAt: expiresAt,
       isValid: true,
     });
@@ -60,11 +60,11 @@ export class PasswordResetCodesService {
    * @param code Значение токена/кода (6-значная строка).
    * @returns Promise с найденным токеном или null.
    */
-  async findValidCode(userId: number, code: string): Promise<PasswordResetCode | null> {
+  async findValidCode(userId: number, code: string): Promise<PasswordResetToken | null> {
     const foundCode = await this.passwordResetCodeRepository.findOne({
       where: {
         userId: userId,
-        code: code,
+        token: code,
         isValid: true,
         expiresAt: MoreThan(new Date()),
       },
@@ -78,7 +78,7 @@ export class PasswordResetCodesService {
    * @param code Объект токена для инвалидации.
    * @returns Promise, который завершается после обновления.
    */
-  async invalidateCode(code: PasswordResetCode): Promise<void> {
+  async invalidateCode(code: PasswordResetToken): Promise<void> {
     code.isValid = false;
     await this.passwordResetCodeRepository.save(code);
   }

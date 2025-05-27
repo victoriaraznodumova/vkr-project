@@ -1,9 +1,11 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
-
-export class InitialMigration1748364409267 implements MigrationInterface {
-    name = 'InitialMigration1748364409267'
-
-    public async up(queryRunner: QueryRunner): Promise<void> {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Migrations1748366913850 = void 0;
+class Migrations1748366913850 {
+    constructor() {
+        this.name = 'Migrations1748366913850';
+    }
+    async up(queryRunner) {
         await queryRunner.query(`ALTER TABLE "password_reset_tokens" DROP CONSTRAINT "password_reset_tokens_user_id_fkey"`);
         await queryRunner.query(`ALTER TABLE "journal" DROP CONSTRAINT "entry_id_fkey"`);
         await queryRunner.query(`ALTER TABLE "journal" DROP CONSTRAINT "initiated_by_user_id_fkey"`);
@@ -119,8 +121,7 @@ export class InitialMigration1748364409267 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "administrators" ADD CONSTRAINT "FK_fc23800cd060320637aa05f21f6" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "FK_421ca49f5a7b180365035267ca6" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
     }
-
-    public async down(queryRunner: QueryRunner): Promise<void> {
+    async down(queryRunner) {
         await queryRunner.query(`ALTER TABLE "password_reset_tokens" DROP CONSTRAINT "FK_421ca49f5a7b180365035267ca6"`);
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "FK_fc23800cd060320637aa05f21f6"`);
         await queryRunner.query(`ALTER TABLE "administrators" DROP CONSTRAINT "FK_12ff2aff54e3fca4b036bfea20b"`);
@@ -236,5 +237,6 @@ export class InitialMigration1748364409267 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "journal" ADD CONSTRAINT "entry_id_fkey" FOREIGN KEY ("entry_id") REFERENCES "entries"("entry_id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "password_reset_tokens" ADD CONSTRAINT "password_reset_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("user_id") ON DELETE CASCADE ON UPDATE NO ACTION`);
     }
-
 }
+exports.Migrations1748366913850 = Migrations1748366913850;
+//# sourceMappingURL=1748366913850-migrations.js.map

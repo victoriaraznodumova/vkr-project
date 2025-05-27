@@ -16,7 +16,7 @@ exports.PasswordResetCodesService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
-const password_reset_code_entity_1 = require("./entity/password-reset-code.entity");
+const password_reset_token_entity_1 = require("./entity/password-reset-token.entity");
 const mailer_1 = require("@nestjs-modules/mailer");
 const config_1 = require("@nestjs/config");
 let PasswordResetCodesService = class PasswordResetCodesService {
@@ -37,7 +37,7 @@ let PasswordResetCodesService = class PasswordResetCodesService {
         expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
         const newCode = this.passwordResetCodeRepository.create({
             userId: user.userId,
-            code: code,
+            token: code,
             expiresAt: expiresAt,
             isValid: true,
         });
@@ -47,7 +47,7 @@ let PasswordResetCodesService = class PasswordResetCodesService {
         const foundCode = await this.passwordResetCodeRepository.findOne({
             where: {
                 userId: userId,
-                code: code,
+                token: code,
                 isValid: true,
                 expiresAt: (0, typeorm_2.MoreThan)(new Date()),
             },
@@ -84,7 +84,7 @@ let PasswordResetCodesService = class PasswordResetCodesService {
 };
 PasswordResetCodesService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, typeorm_1.InjectRepository)(password_reset_code_entity_1.PasswordResetCode)),
+    __param(0, (0, typeorm_1.InjectRepository)(password_reset_token_entity_1.PasswordResetToken)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         mailer_1.MailerService,
         config_1.ConfigService])

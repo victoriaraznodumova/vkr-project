@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { PasswordResetCodesService } from './password-reset-codes.service';
-import { PasswordResetCode } from './entity/password-reset-code.entity';
+import { PasswordResetCode } from './entity/password-reset-token.entity';
 import { User } from '../users/entity/user.entity';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';

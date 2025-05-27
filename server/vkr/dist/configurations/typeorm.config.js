@@ -14,7 +14,7 @@ exports.AppDataSource = new typeorm_1.DataSource({
     synchronize: false,
     logging: true,
     entities: ['dist/**/*.entity{.js,.ts}'],
-    migrations: ['dist/migrations/migrations/*.js'],
+    migrations: ['dist/src/migrations/*.js'],
     migrationsTableName: 'migrations',
 });
 //# sourceMappingURL=typeorm.config.js.map
