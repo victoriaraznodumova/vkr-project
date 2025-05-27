@@ -91,6 +91,10 @@ async function bootstrap() {
   // Путь для доступа к документации Swagger UI
   SwaggerModule.setup('api_docs', app, document); // Доступно по /api/api_docs, т.к. установлен глобальный префикс /api
 
+  app.enableCors({
+    origin: ['https://servis-ocheredey.onrender.com/'], // или укажи массив с разрешёнными доменами
+    credentials: true,
+  });
 
   // Запускаем приложение на прослушивание указанного порта
   await app.listen(PORT);
