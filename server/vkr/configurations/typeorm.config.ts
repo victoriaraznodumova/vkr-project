@@ -13,7 +13,11 @@ export const AppDataSource = new DataSource({
   database: process.env.POSTGRES_DB,
   synchronize: false,        
   logging: true,
-  entities: ['dist/**/*.entity{.ts,.js}'],
-  migrations: ['src/migration/*.ts'],
+  // entities: ['dist/**/*.entity{.ts,.js}'],
+  // migrations: ['src/migration/*.ts'],
+
+  entities: ['dist/**/*.entity{.js,.ts}'], // если билд запускается
+  migrations: ['dist/migrations/*.js'], 
+
   migrationsTableName: 'migrations',
 });
