@@ -43,7 +43,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from '../../users/entity/user.entity'; // Убедитесь, что путь к User сущности правильный
 
-@Entity('password_reset_codes')
+@Entity('password_reset_tokens')
 export class PasswordResetCode {
   @PrimaryGeneratedColumn()
   id: number;
